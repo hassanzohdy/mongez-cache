@@ -123,7 +123,7 @@ console.log(cache.get('name')); // Hasan
 
 ## Cache Manager
 
-By default the cache manager is shipped with a new instance from `CacheManager` class, so you don't have to instanciate it again as it, however, you can make a new instance of it by exporting it directly.
+By default the cache manager is shipped with a new instance from `CacheManager` class, so you don't have to instanciate it again as it, however, you can make a new instance of it by importing it directly.
 
 ```js
 import { PlainLocaleStorageDriver, CacheManager, CacheManagerInterface } from '@mongez/cache';
