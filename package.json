@@ -1,0 +1,22 @@
+{
+  "name": "@mongez/cache",
+  "version": "1.0.11",
+  "description": "Cache manager for handling data in variant cache drivers.",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@mongez/encryption": "^1.0.x"
+  },
+  "keywords": [
+    "cache",
+    "local-storage",
+    "encryption-local-storage",
+    "browser-cache",
+    "browser"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hassanzohdy/mongez-cache"
+  },
+  "author": "hassanzohdy",
+  "license": "MIT"
+}
