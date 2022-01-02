@@ -4,7 +4,7 @@ This cache package handles various ways to store data in the browser.
 
 The current cache system implements [Local Storage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) Cache.
 
-By default there is a [Cache Manager](./manager) that manages the caching behind the scenes.
+By default there is a [Cache Manager](#cache-manager) that manages the caching behind the scenes.
 
 ## Installation
 
