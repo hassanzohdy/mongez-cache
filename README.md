@@ -20,7 +20,7 @@ First off, let's define our cache configurations so we can use cache later witho
 
 ### Setting Cache Configurations
 
-```js
+```ts
 import { PlainLocalStorageDriver, setCacheConfigurations } from '@mongez/cache';
 
 setCacheConfigurations({
@@ -30,16 +30,33 @@ setCacheConfigurations({
 
 ### Storing value in the cache
 
-```js
+```ts
 import cache from '@mongez/cache';
 
 // this will store in the local storage in the browser key `name` and its corresponding value `Hasan`
 cache.set('name', 'Hasan');
 ```
 
+We can also store arrays or objects.
+
+```ts
+import cache from '@mongez/cache';
+
+// store array
+cache.set('letters', [
+  'a', 'b', 'c', 'd', 'e', 'f'
+]);
+
+// store object
+cache.set('user', {
+  id: 1,
+  name: 'Hasan'
+});
+```
+
 ### Getting Value from storage
 
-```js
+```ts
 import cache from '@mongez/cache';
 
 console.log(cache.get('name')); // Hasan
@@ -47,10 +64,21 @@ console.log(cache.get('name')); // Hasan
 
 If the key doesn't exist we can return a default value instead.
 
-```js
+```ts
 import cache from '@mongez/cache';
 
 console.log(cache.get('some-not-stored-key', 'Welcome')); // Welcome
+```
+
+> If no default value passed and the key does not exist, then `null` will be returned.
+
+Getting stored arrays or objects:
+
+```ts
+import cache from '@mongez/cache';
+
+console.log(cache.get('letters')); // [ 'a', 'b', 'c', 'd', 'e', 'f']
+console.log(cache.get('user')); // { id: 1, name: 'Hasan'}
 ```
 
 ### Setting Key Prefix
@@ -59,7 +87,7 @@ We can also define a prefix key that prefixes all of our keys.
 
 > It's recommended to define a prefix key to your app, so similar keys don't override each other especially if you're working on localhost.
 
-```js
+```ts
 import { PlainLocalStorageDriver, setCacheConfigurations } from '@mongez/cache';
 
 setCacheConfigurations({
@@ -75,7 +103,7 @@ console.log(cache.get('name')); // Hasan
 
 ### Removing key from storage
 
-```js
+```ts
 import cache from '@mognez/cache';
 
 cache.remove('name');
@@ -123,9 +151,9 @@ console.log(cache.get('name')); // Hasan
 
 ## Cache Manager
 
-By default the cache manager is shipped with a new instance from `CacheManager` class, so you don't have to instanciate it again as it, however, you can make a new instance of it by importing it directly.
+By default the cache manager is shipped with a new instance from `CacheManager` class, so you don't have to instanciate it again, however, you can make a new instance of it by importing it directly.
 
-```js
+```ts
 import { PlainLocaleStorageDriver, CacheManager, CacheManagerInterface } from '@mongez/cache';
 
 const cache: CacheManagerInterface = new CacheManager;
@@ -139,7 +167,7 @@ cache.setDriver(PlainLocaleStorageDriver).setPrefixKey('my-key');
 
 You may also use any driver directly, the cache manager is just a facade to the storage driver
 
-```js
+```ts
 import { PlainLocaleStorageDriver, CacheDriverInterface } from '@mongez/cache';
 
 const cacheDriver: CacheDriverInterface = new PlainLocaleStorageDriver();
