@@ -1,6 +1,10 @@
+import { CacheDriverInterface } from "../types";
 import BaseCacheEngine from "./BaseCacheEngine";
 
-export default class RunTimeDriver extends BaseCacheEngine {
+export default class RunTimeDriver
+  extends BaseCacheEngine
+  implements CacheDriverInterface
+{
   /**
    * Set the storage engine
    */

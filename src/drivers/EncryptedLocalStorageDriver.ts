@@ -11,6 +11,8 @@ export default class EncryptedLocalStorageDriver
    */
   public set(key: string, value: any) {
     this.storage.setItem(this.getKey(key), encrypt(value));
+
+    return this;
   }
 
   /**
@@ -27,5 +29,7 @@ export default class EncryptedLocalStorageDriver
    */
   public remove(key: string) {
     this.storage.removeItem(this.getKey(key));
+
+    return this;
   }
 }
