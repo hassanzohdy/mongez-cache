@@ -1,6 +1,6 @@
 {
     "name": "@mongez/cache",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "Cache manager for handling data in variant cache drivers.",
     "main": "src/index.ts",
     "dependencies": {
