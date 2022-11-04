@@ -1,7 +1,9 @@
 import cache from "./CacheManager";
 import { CacheConfigurations } from "./types";
 
-export function setCacheConfigurations(configuration: CacheConfigurations) {
+let configuration: Partial<CacheConfigurations> = {};
+
+export function setCacheConfigurations(newConfiguration: CacheConfigurations) {
   if (configuration.driver) {
     cache.setDriver(configuration.driver);
   }
@@ -9,4 +11,14 @@ export function setCacheConfigurations(configuration: CacheConfigurations) {
   if (configuration.prefix) {
     cache.setPrefixKey(configuration.prefix);
   }
+
+  configuration = { ...configuration, ...newConfiguration };
+}
+
+export function getCacheConfigurations() {
+  return configuration;
+}
+
+export function getCacheConfig(key: keyof CacheConfigurations) {
+  return configuration[key];
 }
