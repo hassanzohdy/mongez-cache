@@ -9,8 +9,9 @@ export class CacheManager implements CacheManagerInterface {
   /**
    * Set driver engine
    */
-  public setDriver(driver: CacheDriverInterface): void {
+  public setDriver(driver: CacheDriverInterface) {
     this.driver = driver;
+    return this;
   }
 
   /**
@@ -23,8 +24,9 @@ export class CacheManager implements CacheManagerInterface {
   /**
    * Set cache into storage
    */
-  public set(key: string, value: any, expiresAfter: number) {
+  public set(key: string, value: any, expiresAfter?: number) {
     this.driver.set(key, value, expiresAfter);
+    return this;
   }
 
   /**
@@ -46,6 +48,7 @@ export class CacheManager implements CacheManagerInterface {
    */
   public remove(key: string) {
     this.driver.remove(key);
+    return this;
   }
 
   /**
@@ -53,6 +56,7 @@ export class CacheManager implements CacheManagerInterface {
    */
   public setPrefixKey(key: string) {
     this.driver.setPrefixKey(key);
+    return this;
   }
 
   /**

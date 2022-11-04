@@ -2,7 +2,7 @@ export type CacheDriverInterface = {
   /**
    * Set cache into storage
    */
-  set(key: string, value: any, expiresAfter?: number): void;
+  set(key: string, value: any, expiresAfter?: number): CacheDriverInterface;
 
   /**
    * Get value from cache engine, if key does not exist return default value
@@ -17,12 +17,12 @@ export type CacheDriverInterface = {
   /**
    * Remove the given key from the cache storage
    */
-  remove(key: string): void;
+  remove(key: string): CacheDriverInterface;
 
   /**
    * Set prefix key
    */
-  setPrefixKey(key: string): void;
+  setPrefixKey(key: string): CacheDriverInterface;
 
   /**
    * Get prefix key

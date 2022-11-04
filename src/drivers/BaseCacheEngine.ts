@@ -30,6 +30,8 @@ export default class BaseCacheEngine implements CacheDriverInterface {
         expiresAt,
       })
     );
+
+    return this;
   }
 
   /**
@@ -70,6 +72,7 @@ export default class BaseCacheEngine implements CacheDriverInterface {
    */
   public remove(key: string) {
     this.storage.removeItem(this.getKey(key));
+    return this;
   }
 
   /**
@@ -91,7 +94,8 @@ export default class BaseCacheEngine implements CacheDriverInterface {
   /**
    * Set prefix key
    */
-  public setPrefixKey(key: string): void {
+  public setPrefixKey(key: string) {
     this.prefixKey = key;
+    return this;
   }
 }
