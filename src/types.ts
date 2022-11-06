@@ -7,7 +7,7 @@ export type CacheDriverInterface = {
   /**
    * Get value from cache engine, if key does not exist return default value
    */
-  get(key: string, defaultValue: any): any;
+  get(key: string, defaultValue?: any): any;
 
   /**
    * Determine whether the cache engine has the given key
