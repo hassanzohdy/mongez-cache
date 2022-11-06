@@ -4,12 +4,12 @@ import { CacheConfigurations } from "./types";
 let configuration: Partial<CacheConfigurations> = {};
 
 export function setCacheConfigurations(newConfiguration: CacheConfigurations) {
-  if (configuration.driver) {
-    cache.setDriver(configuration.driver);
+  if (newConfiguration.driver) {
+    cache.setDriver(newConfiguration.driver);
   }
 
-  if (configuration.prefix) {
-    cache.setPrefixKey(configuration.prefix);
+  if (newConfiguration.prefix) {
+    cache.setPrefixKey(newConfiguration.prefix);
   }
 
   configuration = { ...configuration, ...newConfiguration };
