@@ -9,7 +9,15 @@ export function setCacheConfigurations(newConfiguration: CacheConfigurations) {
   }
 
   if (newConfiguration.prefix) {
-    cache.setPrefixKey(newConfiguration.prefix);
+    cache.getDriver().setPrefixKey(newConfiguration.prefix);
+  }
+
+  if (newConfiguration.valueConverter) {
+    cache.getDriver().setValueConverter(newConfiguration.valueConverter);
+  }
+
+  if (newConfiguration.valueParer) {
+    cache.getDriver().setValueParser(newConfiguration.valueParer);
   }
 
   configuration = { ...configuration, ...newConfiguration };

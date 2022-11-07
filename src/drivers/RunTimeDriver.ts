@@ -35,4 +35,18 @@ export default class RunTimeDriver
   public removeItem(key: string) {
     delete this.data[key];
   }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected convertValue(value: any) {
+    return value;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  protected parseValue(value: any) {
+    return value;
+  }
 }

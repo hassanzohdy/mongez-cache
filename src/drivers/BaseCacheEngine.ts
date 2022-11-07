@@ -10,7 +10,33 @@ export default class BaseCacheEngine implements CacheDriverInterface {
   /**
    * Prefix key
    */
-  public prefixKey: string;
+  public prefixKey: string = "";
+
+  /**
+   * Value parser
+   */
+  protected _valueParser = this.parseValue.bind(this);
+
+  /**
+   * Value converter
+   */
+  protected _valueConverter = this.convertValue.bind(this);
+
+  /**
+   * set value parser
+   */
+  public setValueParser(parser: any) {
+    this._valueParser = parser;
+    return this;
+  }
+
+  /**
+   * Set value converter
+   */
+  public setValueConverter(converter: any) {
+    this._valueConverter = converter;
+    return this;
+  }
 
   /**
    * Set data into storage engine
@@ -21,17 +47,37 @@ export default class BaseCacheEngine implements CacheDriverInterface {
         ? expiresAfter
         : ((getCacheConfig("expiresAfter") || 0) as number);
 
-    let expiresAt = expireTime ? new Date().getTime() + expireTime : undefined;
+    let expiresAt = expireTime
+      ? new Date().getTime() + expireTime * 1000
+      : undefined;
 
     this.storage.setItem(
       this.getKey(key),
-      JSON.stringify({
+      this._valueConverter({
         data: value,
         expiresAt,
       })
     );
 
     return this;
+  }
+
+  /**
+   * Parse stored value
+   */
+  protected parseValue(value: any) {
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      return value;
+    }
+  }
+
+  /**
+   * Set the mechanism to store data
+   */
+  protected convertValue(value: any) {
+    return JSON.stringify(value);
   }
 
   /**
@@ -43,7 +89,7 @@ export default class BaseCacheEngine implements CacheDriverInterface {
     if (!value) return defaultValue;
 
     try {
-      const cachedData = JSON.parse(value);
+      const cachedData = this._valueParser(value);
 
       // check if there is a cache timestamp
       // if it is lower than current timestamp

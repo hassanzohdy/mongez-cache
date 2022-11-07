@@ -26,7 +26,7 @@ export class CacheManager implements CacheManagerInterface {
    */
   public set(key: string, value: any, expiresAfter?: number) {
     this.driver.set(key, value, expiresAfter);
-    return this;
+    return this as any;
   }
 
   /**
@@ -48,7 +48,7 @@ export class CacheManager implements CacheManagerInterface {
    */
   public remove(key: string) {
     this.driver.remove(key);
-    return this;
+    return this as any;
   }
 
   /**
@@ -56,7 +56,7 @@ export class CacheManager implements CacheManagerInterface {
    */
   public setPrefixKey(key: string) {
     this.driver.setPrefixKey(key);
-    return this;
+    return this as any;
   }
 
   /**
@@ -64,6 +64,24 @@ export class CacheManager implements CacheManagerInterface {
    */
   public getPrefixKey(): string {
     return this.driver.getPrefixKey();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public setValueParser(parser: any): CacheDriverInterface {
+    this.driver.setValueParser(parser);
+
+    return this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public setValueConverter(converter: any): CacheDriverInterface {
+    this.driver.setValueConverter(converter);
+
+    return this;
   }
 }
 

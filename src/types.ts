@@ -10,6 +10,16 @@ export type CacheDriverInterface = {
   get(key: string, defaultValue?: any): any;
 
   /**
+   * Set value parser
+   */
+  setValueParser(parser: any): CacheDriverInterface;
+
+  /**
+   * Set value converter
+   */
+  setValueConverter(converter: any): CacheDriverInterface;
+
+  /**
    * Determine whether the cache engine has the given key
    */
   has(key: string): boolean;
@@ -46,6 +56,14 @@ export type CacheConfigurations = {
    * The Cache drier interface
    */
   driver: CacheDriverInterface;
+  /**
+   * Set value parser when getting value from cache
+   */
+  valueParer?: (value: any) => any;
+  /**
+   * Set value converter when setting value to cache
+   */
+  valueConverter?: (value: any) => any;
   /**
    * A prefix for each key in the driver, this is useful for multi apps in same domain
    */

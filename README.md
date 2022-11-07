@@ -375,8 +375,39 @@ import { getCacheConfig } from "@mongez/cache";
 const expiresAfter = getCacheConfig("expiresAfter");
 ```
 
+## Define Value Converter
+
+> Added in 1.1.6
+
+By default the value is being converted to JSON string before storing it in the storage, and when getting the value it will be converted back to the original value.
+
+To define the value converter, you can define the `valueConverter` function in the configurations.
+
+```ts
+import { setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({
+  // the value will be stored as it is
+  valueConverter: JSON.stringify,
+  // the value will be converted back to the original value
+  valueParer: JSON.parse,
+});
+```
+
+You can also set it directly in the driver.
+
+```ts
+import { PlainSessionStorageDriver } from "@mongez/cache";
+
+const driver = new PlainSessionStorageDriver();
+
+driver.setValueConverter(JSON.stringify).setValueParser(JSON.parse);
+```
+
 ## Change Log
 
+- Version 1.1.6 (07 Nov 2022)
+  - Added `valueConverter` and `valueParser` to the configurations.  
 - Version 1.1.0 (04 Nov 2022)
   - Added [Runtime Cache Driver](#runtime-driver).
   - Added [Plain Session Cache Driver](#plain-session-storage-driver).
