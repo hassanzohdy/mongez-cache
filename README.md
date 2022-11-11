@@ -99,6 +99,92 @@ cache.set("name", "Hasan");
 console.log(cache.get("name")); // Hasan
 ```
 
+## Cache Configurations list
+
+Here is the list of all available configurations:
+
+```ts
+ type CacheDriverInterface = {
+  /**
+   * Set cache into storage
+   */
+  set(key: string, value: any, expiresAfter?: number): CacheDriverInterface;
+
+  /**
+   * Get value from cache engine, if key does not exist return default value
+   */
+  get(key: string, defaultValue?: any): any;
+
+  /**
+   * Set value parser
+   */
+  setValueParser(parser: any): CacheDriverInterface;
+
+  /**
+   * Set value converter
+   */
+  setValueConverter(converter: any): CacheDriverInterface;
+
+  /**
+   * Determine whether the cache engine has the given key
+   */
+  has(key: string): boolean;
+
+  /**
+   * Remove the given key from the cache storage
+   */
+  remove(key: string): CacheDriverInterface;
+
+  /**
+   * Set prefix key
+   */
+  setPrefixKey(key: string): CacheDriverInterface;
+
+  /**
+   * Get prefix key
+   */
+  getPrefixKey(): string;
+};
+
+ type CacheConfigurations = {
+  /**
+   * The Cache drier interface
+   */
+  driver: CacheDriverInterface;
+  /**
+   * Set value parser when getting value from cache
+   */
+  valueParer?: (value: any) => any;
+  /**
+   * Set value converter when setting value to cache
+   */
+  valueConverter?: (value: any) => any;
+  /**
+   * A prefix for each key in the driver, this is useful for multi apps in same domain
+   */
+  prefix?: string;
+  /**
+   * Expire time of the cache in seconds
+   *
+   * @default Infinity
+   */
+  expiresAfter?: number;
+  /**
+   * Encryption handlers
+   */
+  encryption?: {
+    /**
+     * Encrypt function
+     */
+    encrypt: (value: any) => any;
+    /**
+     * Decrypt function
+     */
+    decrypt: (value: any) => any;
+  };
+};
+```
+
 ### Removing key from storage
 
 ```ts
@@ -113,11 +199,11 @@ console.log(cache.get("name")); // null
 
 The following list implements [Cache Driver Interface](#cache-driver-interface).
 
-- [Plain Local Storage Driver](./plain-local-storage-driver)
-- [Encrypted Local Storage Driver](./encrypted-local-storage-driver)
-- [Plain Session Storage Driver](./plain-session-storage-driver)
-- [Encrypted Session Storage Driver](./encrypted-session-storage-driver)
-- [RunTime Driver](./runtime-driver)
+- [Plain Local Storage Driver](#plain-local-storage-driver)
+- [Encrypted Local Storage Driver](#encrypted-local-storage-driver)
+- [Plain Session Storage Driver](#plain-session-storage-driver)
+- [Encrypted Session Storage Driver](#encrypted-session-storage-driver)
+- [RunTime Driver](#runtime-driver)
 
 ## Plain Local Storage Driver
 
@@ -142,12 +228,14 @@ console.log(cache.get("name")); // Hasan
 
 ## Encrypted Local Storage Driver
 
-Works exactly same as [Plain Local Storage Driver](./plain-local-storage-driver) except that values are encrypted when stored in the storage.
+> Starting From V1.2.0 it requires to set the `encryption.encrypt` and `encryption.decrypt` functions in configuration to make this work.
+
+Works exactly same as [Plain Local Storage Driver](#plain-local-storage-driver) except that values are encrypted when stored in the storage.
 
 To make this work, make sure that you've set encryption key in [Encryption Configuration](https://github.com/hassanzohdy/mongez-encryption#encryption-configurations), the `@mongez/encryption` package is a dependency to this package so you don't have to install it again.
 
 ```ts
-import { setEncryptionConfigurations } from "@mongez/encryption";
+import { encrypt, decrypt setEncryptionConfigurations } from "@mongez/encryption";
 import {
   EncryptedLocalStorageDriver,
   setCacheConfigurations,
@@ -161,6 +249,11 @@ setEncryptionConfigurations({
 
 setCacheConfigurations({
   driver: new EncryptedLocalStorageDriver(),
+  // add encryption handlers
+  encryption: {
+    encrypt,
+    decrypt,
+  }
 });
 
 // The value will be stored as encrypted value something like store-name: asdfgtrhy54rewqsdaftrgyujiy67t54re3wqsd
@@ -196,12 +289,14 @@ console.log(cache.get("name")); // Hasan
 
 > Added in v1.1
 
-Works exactly same as [Plain session Storage Driver](./plain-session-storage-driver) except that values are encrypted when stored in the storage.
+> Starting From V1.2.0 it requires to set the `encryption.encrypt` and `encryption.decrypt` functions in configuration to make this work.
+
+Works exactly same as [Plain session Storage Driver](#plain-session-storage-driver) except that values are encrypted when stored in the storage.
 
 To make this work, make sure that you've set encryption key in [Encryption Configuration](https://github.com/hassanzohdy/mongez-encryption#encryption-configurations), the `@mongez/encryption` package is a dependency to this package so you don't have to install it again.
 
 ```ts
-import { setEncryptionConfigurations } from "@mongez/encryption";
+import { encrypt, decrypt setEncryptionConfigurations } from "@mongez/encryption";
 import {
   EncryptedSessionStorageDriver,
   setCacheConfigurations,
@@ -215,6 +310,11 @@ setEncryptionConfigurations({
 
 setCacheConfigurations({
   driver: new EncryptedLocalStorageDriver(),
+  // add encryption handlers
+  encryption: {
+    encrypt,
+    decrypt,
+  }
 });
 
 // The value will be stored as encrypted value something like store-name: asdfgtrhy54rewqsdaftrgyujiy67t54re3wqsd
@@ -406,6 +506,8 @@ driver.setValueConverter(JSON.stringify).setValueParser(JSON.parse);
 
 ## Change Log
 
+- Version 1.2.0 (11 Nov 2022)
+  - Removed Encryption Dependency and set it in the configuration.
 - Version 1.1.6 (07 Nov 2022)
   - Added `valueConverter` and `valueParser` to the configurations.  
 - Version 1.1.0 (04 Nov 2022)

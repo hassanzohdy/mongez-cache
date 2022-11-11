@@ -1,4 +1,4 @@
-import { decrypt, encrypt } from "@mongez/encryption";
+import { getCacheConfig } from "../config";
 import { CacheDriverInterface } from "../types";
 import PlainLocalStorageDriver from "./PlainLocalStorageDriver";
 
@@ -10,7 +10,10 @@ export default class EncryptedLocalStorageDriver
    * Set data into storage engine
    */
   public set(key: string, value: any) {
-    this.storage.setItem(this.getKey(key), encrypt(value));
+    this.storage.setItem(
+      this.getKey(key),
+      getCacheConfig("encryption")?.encrypt(value)
+    );
 
     return this;
   }
@@ -21,7 +24,7 @@ export default class EncryptedLocalStorageDriver
   public get(key: string, defaultValue: any = null) {
     let value = this.storage.getItem(this.getKey(key));
 
-    return value ? decrypt(value) : defaultValue;
+    return value ? getCacheConfig("encryption")?.decrypt(value) : defaultValue;
   }
 
   /**

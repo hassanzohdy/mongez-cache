@@ -74,4 +74,17 @@ export type CacheConfigurations = {
    * @default Infinity
    */
   expiresAfter?: number;
+  /**
+   * Encryption handlers
+   */
+  encryption?: {
+    /**
+     * Encrypt function
+     */
+    encrypt: (value: any) => any;
+    /**
+     * Decrypt function
+     */
+    decrypt: (value: any) => any;
+  };
 };
