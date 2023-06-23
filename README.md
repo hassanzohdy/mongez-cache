@@ -104,49 +104,8 @@ console.log(cache.get("name")); // Hasan
 Here is the list of all available configurations:
 
 ```ts
- type CacheDriverInterface = {
-  /**
-   * Set cache into storage
-   */
-  set(key: string, value: any, expiresAfter?: number): CacheDriverInterface;
 
-  /**
-   * Get value from cache engine, if key does not exist return default value
-   */
-  get(key: string, defaultValue?: any): any;
-
-  /**
-   * Set value parser
-   */
-  setValueParser(parser: any): CacheDriverInterface;
-
-  /**
-   * Set value converter
-   */
-  setValueConverter(converter: any): CacheDriverInterface;
-
-  /**
-   * Determine whether the cache engine has the given key
-   */
-  has(key: string): boolean;
-
-  /**
-   * Remove the given key from the cache storage
-   */
-  remove(key: string): CacheDriverInterface;
-
-  /**
-   * Set prefix key
-   */
-  setPrefixKey(key: string): CacheDriverInterface;
-
-  /**
-   * Get prefix key
-   */
-  getPrefixKey(): string;
-};
-
- type CacheConfigurations = {
+export type CacheConfigurations = {
   /**
    * The Cache drier interface
    */
@@ -232,10 +191,8 @@ console.log(cache.get("name")); // Hasan
 
 Works exactly same as [Plain Local Storage Driver](#plain-local-storage-driver) except that values are encrypted when stored in the storage.
 
-To make this work, make sure that you've set encryption key in [Encryption Configuration](https://github.com/hassanzohdy/mongez-encryption#encryption-configurations), the `@mongez/encryption` package is a dependency to this package so you don't have to install it again.
-
 ```ts
-import { encrypt, decrypt setEncryptionConfigurations } from "@mongez/encryption";
+import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
 import {
   EncryptedLocalStorageDriver,
   setCacheConfigurations,
@@ -293,10 +250,8 @@ console.log(cache.get("name")); // Hasan
 
 Works exactly same as [Plain session Storage Driver](#plain-session-storage-driver) except that values are encrypted when stored in the storage.
 
-To make this work, make sure that you've set encryption key in [Encryption Configuration](https://github.com/hassanzohdy/mongez-encryption#encryption-configurations), the `@mongez/encryption` package is a dependency to this package so you don't have to install it again.
-
 ```ts
-import { encrypt, decrypt setEncryptionConfigurations } from "@mongez/encryption";
+import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
 import {
   EncryptedSessionStorageDriver,
   setCacheConfigurations,
@@ -367,11 +322,11 @@ This will store the key `name` with value `Hasan` and it will be removed after 5
 import { setCacheConfigurations } from "@mongez/cache";
 
 setCacheConfigurations({
-  expireTime: 60 * 5, // 5 minutes
+  expiresAfter: 60 * 5, // 5 minutes
 });
 ```
 
-The default value of expire time is `Infinity` which means the value will be cached for ever.
+The default value of expire time is `Infinity` which means the value will be cached forever.
 
 ## Cache Manager
 
