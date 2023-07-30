@@ -14,6 +14,17 @@ Or
 
 `npm i @mongez/cache`
 
+## Features
+
+Here are some but not all of the features of this package:
+
+- ✅ One API driver to handle all cache engines.
+- ✅ Supports [Local Storage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) Cache.
+- ✅ Supports [Session Storage](https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage) Cache.
+- ✅ Supports Runtime Cache.
+- ✅ Supports Encryption for both Local Storage and Session Storage.
+- ✅ Open for extension to add more cache engines.
+
 ## Usage
 
 First off, let's define our cache configurations so we can use cache later without setting it every time.
@@ -104,7 +115,6 @@ console.log(cache.get("name")); // Hasan
 Here is the list of all available configurations:
 
 ```ts
-
 export type CacheConfigurations = {
   /**
    * The Cache drier interface
@@ -171,10 +181,7 @@ The plain local storage implements [Local Storage](https://developer.mozilla.org
 The driver name is: `PlainLocalStorageDriver`
 
 ```ts
-import {
-  PlainLocalStorageDriver,
-  setCacheConfigurations,
-} from "@mongez/cache";
+import { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
 
 setCacheConfigurations({
   driver: new PlainLocalStorageDriver(),
@@ -192,7 +199,11 @@ console.log(cache.get("name")); // Hasan
 Works exactly same as [Plain Local Storage Driver](#plain-local-storage-driver) except that values are encrypted when stored in the storage.
 
 ```ts
-import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
+import {
+  encrypt,
+  decrypt,
+  setEncryptionConfigurations,
+} from "@mongez/encryption";
 import {
   EncryptedLocalStorageDriver,
   setCacheConfigurations,
@@ -210,7 +221,7 @@ setCacheConfigurations({
   encryption: {
     encrypt,
     decrypt,
-  }
+  },
 });
 
 // The value will be stored as encrypted value something like store-name: asdfgtrhy54rewqsdaftrgyujiy67t54re3wqsd
@@ -251,7 +262,11 @@ console.log(cache.get("name")); // Hasan
 Works exactly same as [Plain session Storage Driver](#plain-session-storage-driver) except that values are encrypted when stored in the storage.
 
 ```ts
-import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
+import {
+  encrypt,
+  decrypt,
+  setEncryptionConfigurations,
+} from "@mongez/encryption";
 import {
   EncryptedSessionStorageDriver,
   setCacheConfigurations,
@@ -269,7 +284,7 @@ setCacheConfigurations({
   encryption: {
     encrypt,
     decrypt,
-  }
+  },
 });
 
 // The value will be stored as encrypted value something like store-name: asdfgtrhy54rewqsdaftrgyujiy67t54re3wqsd
@@ -308,15 +323,15 @@ import cache from "@mongez/cache";
 cache.set("name", "Hasan", 60 * 5); // expires in 5 minutes
 
 // after one minute
-cache.get('name'); // Hasan
+cache.get("name"); // Hasan
 
 // after 5 minutes
-cache.get('name'); // null
+cache.get("name"); // null
 ```
 
 This will store the key `name` with value `Hasan` and it will be removed after 5 minutes.
 
- By default the cache value will be cached for ever, You can override the default expire time from the configuration.
+By default the cache value will be cached for ever, You can override the default expire time from the configuration.
 
 ```ts
 import { setCacheConfigurations } from "@mongez/cache";
@@ -398,7 +413,7 @@ type CacheDriverInterface = {
 ## Cache Manager Interface
 
 ```ts
- interface CacheManagerInterface extends CacheDriverInterface {
+interface CacheManagerInterface extends CacheDriverInterface {
   /**
    * Set driver engine
    */
@@ -464,13 +479,13 @@ driver.setValueConverter(JSON.stringify).setValueParser(JSON.parse);
 - Version 1.2.0 (11 Nov 2022)
   - Removed Encryption Dependency and set it in the configuration.
 - Version 1.1.6 (07 Nov 2022)
-  - Added `valueConverter` and `valueParser` to the configurations.  
+  - Added `valueConverter` and `valueParser` to the configurations.
 - Version 1.1.0 (04 Nov 2022)
   - Added [Runtime Cache Driver](#runtime-driver).
   - Added [Plain Session Cache Driver](#plain-session-storage-driver).
   - Added [Encrypted Session Cache Driver](#encrypted-session-storage-driver).
   - Added [Expire Time](#expire-time).
-  - Added [Getting Cache Configurations](#getting-cache-configurations).  
+  - Added [Getting Cache Configurations](#getting-cache-configurations).
 
 ## TODO
 
