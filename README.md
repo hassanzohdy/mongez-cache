@@ -24,6 +24,8 @@ Here are some but not all of the features of this package:
 - ✅ Supports Runtime Cache.
 - ✅ Supports Encryption for both Local Storage and Session Storage.
 - ✅ Open for extension to add more cache engines.
+- ✅ Supports Expire Time for each key.
+- ✅ Auto convert objects and arrays when storing and getting them.
 
 ## Usage
 
