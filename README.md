@@ -26,6 +26,7 @@ Here are some but not all of the features of this package:
 - ✅ Open for extension to add more cache engines.
 - ✅ Supports Expire Time for each key.
 - ✅ Auto convert objects and arrays when storing and getting them.
+- ✅ Works perfectly with any framework or library or just plain JavaScript.
 
 ## Usage
 
