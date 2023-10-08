@@ -42,12 +42,12 @@ export default class BaseCacheEngine implements CacheDriverInterface {
    * Set data into storage engine
    */
   public set(key: string, value: any, expiresAfter?: number) {
-    let expireTime: number | false =
+    const expireTime: number | false =
       expiresAfter !== undefined
         ? expiresAfter
         : ((getCacheConfig("expiresAfter") || 0) as number);
 
-    let expiresAt = expireTime
+    const expiresAt = expireTime
       ? new Date().getTime() + expireTime * 1000
       : undefined;
 
@@ -83,10 +83,10 @@ export default class BaseCacheEngine implements CacheDriverInterface {
   /**
    * Get vale from storage engine
    */
-  public get(key: string, defaultValue: any = null) {
+  public get(key: string, defaultValue?: any) {
     let value = this.storage.getItem(this.getKey(key));
 
-    if (!value) return defaultValue;
+    if (value === null) return defaultValue;
 
     try {
       const cachedData = this._valueParser(value);
