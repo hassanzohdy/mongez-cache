@@ -83,6 +83,15 @@ export class CacheManager implements CacheManagerInterface {
 
     return this;
   }
+
+  /**
+   * Clear the cache storage
+   */
+  public clear() {
+    this.driver.clear();
+
+    return this;
+  }
 }
 
 const cacheManager = new CacheManager();

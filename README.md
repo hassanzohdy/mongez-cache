@@ -344,6 +344,16 @@ setCacheConfigurations({
 });
 ```
 
+## Clear Cache
+
+To clear the entire cache storage, you can use the `clear` method.
+
+```ts
+import cache from "@mongez/cache";
+
+cache.clear();
+```
+
 The default value of expire time is `Infinity` which means the value will be cached forever.
 
 ## Cache Manager
@@ -410,6 +420,11 @@ type CacheDriverInterface = {
    * Get prefix key
    */
   getPrefixKey(): string;
+
+  /**
+   * Clear the cache storage
+   */
+  clear(): CacheDriverInterface; 
 };
 ```
 

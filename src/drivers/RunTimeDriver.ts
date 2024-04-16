@@ -49,4 +49,13 @@ export default class RunTimeDriver
   protected parseValue(value: any) {
     return value;
   }
+
+  /**
+   * Clear the cache storage
+   */
+  public clear() {
+    this.data = {};
+
+    return this;
+  }
 }

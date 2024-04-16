@@ -38,6 +38,11 @@ export type CacheDriverInterface = {
    * Get prefix key
    */
   getPrefixKey(): string;
+
+  /**
+   * Clear the cache storage
+   */
+  clear(): CacheDriverInterface;
 };
 
 export interface CacheManagerInterface extends CacheDriverInterface {

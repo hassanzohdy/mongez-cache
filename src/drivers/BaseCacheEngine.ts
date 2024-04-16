@@ -144,4 +144,12 @@ export default class BaseCacheEngine implements CacheDriverInterface {
     this.prefixKey = key;
     return this;
   }
+
+  /**
+   * Clear the cache storage
+   */
+  public clear() {
+    this.storage.clear();
+    return this;
+  }
 }
