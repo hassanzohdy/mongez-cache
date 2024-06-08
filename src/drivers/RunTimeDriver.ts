@@ -13,20 +13,34 @@ export default class RunTimeDriver
   /**
    * Data list
    */
-  protected data: any = {};
+  public data: any = {};
 
   /**
    * Get item
    */
-  public getItem(key: string) {
-    return this.data[key];
+  public getItem(key: string, defaultValue?: any) {
+    const data = this.data[key];
+
+    if (!data) return defaultValue;
+
+    if (data.expiresAt && data.expiresAt < new Date().getTime()) {
+      this.removeItem(key);
+      return defaultValue;
+    }
+
+    return data.value;
   }
 
   /**
    * Set item
    */
-  public setItem(key: string, value: any) {
-    this.data[key] = value;
+  public setItem(key: string, value: any, expiresAfter?: number) {
+    this.data[key] = {
+      value,
+      expiresAt: expiresAfter
+        ? new Date().getTime() + expiresAfter * 1000
+        : undefined,
+    };
   }
 
   /**

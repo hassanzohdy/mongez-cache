@@ -39,6 +39,32 @@ export default class BaseCacheEngine implements CacheDriverInterface {
   }
 
   /**
+   * Get vale from storage engine
+   */
+  public get(key: string, defaultValue?: any) {
+    let value = this.storage.getItem(this.getKey(key));
+
+    if (value === null) return defaultValue;
+
+    try {
+      const cachedData = this._valueParser(value);
+
+      // check if there is a cache timestamp
+      // if it is lower than current timestamp
+      // then remove the key from storage
+      if (cachedData.expiresAt && cachedData.expiresAt < new Date().getTime()) {
+        this.remove(key);
+        return defaultValue;
+      }
+
+      return cachedData.data;
+    } catch (error) {
+      this.remove(key);
+      return defaultValue;
+    }
+  }
+
+  /**
    * Set data into storage engine
    */
   public set(key: string, value: any, expiresAfter?: number) {
@@ -78,32 +104,6 @@ export default class BaseCacheEngine implements CacheDriverInterface {
    */
   protected convertValue(value: any) {
     return JSON.stringify(value);
-  }
-
-  /**
-   * Get vale from storage engine
-   */
-  public get(key: string, defaultValue?: any) {
-    let value = this.storage.getItem(this.getKey(key));
-
-    if (value === null) return defaultValue;
-
-    try {
-      const cachedData = this._valueParser(value);
-
-      // check if there is a cache timestamp
-      // if it is lower than current timestamp
-      // then remove the key from storage
-      if (cachedData.expiresAt && cachedData.expiresAt < new Date().getTime()) {
-        this.remove(key);
-        return defaultValue;
-      }
-
-      return cachedData.data;
-    } catch (error) {
-      this.remove(key);
-      return defaultValue;
-    }
   }
 
   /**
