@@ -104,7 +104,7 @@ import { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
 
 setCacheConfigurations({
   driver: new PlainLocalStorageDriver(),
-  key: "store-",
+  prefix: "store-",
 });
 
 // this will store in the local storage in the browser key `store-name` and its corresponding value `Hasan`
@@ -424,7 +424,7 @@ type CacheDriverInterface = {
   /**
    * Clear the cache storage
    */
-  clear(): CacheDriverInterface; 
+  clear(): CacheDriverInterface;
 };
 ```
 
