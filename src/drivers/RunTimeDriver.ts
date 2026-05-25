@@ -17,8 +17,14 @@ export default class RunTimeDriver
 
   /**
    * Get item
+   *
+   * Returns `null` for missing keys (when no `defaultValue` is given)
+   * to match the Web Storage API contract. The previous implementation
+   * returned `undefined`, which broke `BaseCacheEngine.has()` — the
+   * base engine checks `getItem(...) !== null` and `undefined !== null`
+   * is `true`, so `has(missingKey)` reported `true` on this driver.
    */
-  public getItem(key: string, defaultValue?: any) {
+  public getItem(key: string, defaultValue: any = null) {
     const data = this.data[key];
 
     if (!data) return defaultValue;

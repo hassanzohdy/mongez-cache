@@ -1,0 +1,50 @@
+# @mongez/cache
+
+> A framework-agnostic cache facade with pluggable drivers — localStorage, sessionStorage, in-memory, and encrypted variants. One API, key prefixing, per-entry TTL, and a shape that drops into `@mongez/atom`'s `persist` slot.
+
+This is the storage layer of the Mongez family. The state primitive lives in [`@mongez/atom`](https://github.com/hassanzohdy/atom); the encrypt/decrypt pair for the encrypted drivers lives in [`@mongez/encryption`](https://github.com/hassanzohdy/mongez-encryption).
+
+Every export ships from the package root.
+
+## Docs
+
+- [Overview](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/overview.md): Pitch, install, mental model.
+- [README](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/README.md): Marketing-style index.
+- [Changelog](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/CHANGELOG.md): Release notes and documented bugs.
+
+## Reference (by area)
+
+- [Cache manager](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/manager.md): `cache` (default singleton), `CacheManager`, configuration (`setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`), prefix, TTL.
+- [Local storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/local-storage.md): `PlainLocalStorageDriver`. localStorage-backed JSON cache.
+- [Session storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/session-storage.md): `PlainSessionStorageDriver`. Same contract, sessionStorage backend.
+- [Runtime driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/runtime.md): `RunTimeDriver`. In-memory map for tests, SSR fallback, ephemeral state.
+- [Encryption](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/encryption.md): `EncryptedLocalStorageDriver`, `EncryptedSessionStorageDriver`, encrypt/decrypt configuration.
+- [Custom drivers](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/custom-drivers.md): Extending `BaseCacheEngine` with IndexedDB, cookies, or remote backends.
+
+## Recipes
+
+- [Recipes](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/recipes.md): Multi-app prefixing, TTL per call vs. global, encrypted tokens, atom persistence wiring, SSR fallback to runtime driver.
+
+## Quick rules
+
+1. **Flat imports**: `import cache, { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache"`. No subpath entry points.
+2. **One bootstrap call**: invoke `setCacheConfigurations({ driver })` once at boot, then import the default `cache` everywhere.
+3. **Drivers are interchangeable**: every driver implements the same `CacheDriverInterface`. Swap at boot without touching call sites.
+4. **Values are JSON-serialized by default**: objects and arrays survive round-trips. Override `valueConverter` / `valueParer` for non-JSON shapes.
+5. **TTL is in seconds**: `cache.set(key, value, 60 * 15)` = 15 minutes. Set a global default via `expiresAfter` in configuration.
+6. **`prefix` namespaces every key**: required when sharing a domain with other apps; the on-disk key becomes `${prefix}${key}`.
+7. **Encrypted drivers need explicit encrypt/decrypt pair**: configure via `setCacheConfigurations({ encryption: { encrypt, decrypt } })`. Drivers throw if the pair is missing on first write.
+
+## Two documented bugs
+
+These are tested but skipped in `src/__tests__/`:
+
+1. `EncryptedLocalStorageDriver.set` ignores `expiresAfter` — encrypted entries never expire (`drivers/EncryptedLocalStorageDriver.ts:12`).
+2. `RunTimeDriver.has(missingKey)` returns `true` — base engine uses `!== null`, runtime returns `undefined` (`drivers/RunTimeDriver.ts:24`).
+
+See the changelog for the full list.
+
+## Optional
+
+- [Full single-file reference (llms-full.txt)](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/llms-full.txt): All reference content concatenated.
+- [GitHub repository](https://github.com/hassanzohdy/mongez-cache): Source code, issues, releases.

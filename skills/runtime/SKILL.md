@@ -1,0 +1,92 @@
+---
+name: mongez-cache-runtime
+description: Documents RunTimeDriver — the in-memory cache driver used for tests, SSR fallback, and ephemeral page-lifetime state, including its known has() bug.
+when_to_use: User imports RunTimeDriver from @mongez/cache, asks about in-memory caching, test isolation for cache state, SSR-safe cache drivers, or ephemeral caching that should not persist across page reloads.
+---
+
+# RunTimeDriver
+
+In-memory map. Forgets everything when the page unloads. Two instances on the same page have independent stores.
+
+## Signature
+
+```ts
+import { RunTimeDriver } from "@mongez/cache";
+
+class RunTimeDriver extends BaseCacheEngine implements CacheDriverInterface {
+  public data: Record<string, { value: any; expiresAt?: number }>;
+}
+```
+
+The driver overrides `getItem` / `setItem` / `removeItem` to talk to `this.data` directly, and overrides `convertValue` / `parseValue` to no-ops since the in-memory store doesn't need JSON.
+
+## When to use it
+
+- **Tests**: deterministic, isolated, no browser globals required, no cleanup between tests.
+- **SSR fallback**: when the same code path runs on server and client, switch to the runtime driver on the server so calls don't throw.
+- **Ephemeral state**: caches that should die with the page (search-suggestion cache, derived-value memos, etc).
+
+For state that survives a reload, use [`PlainLocalStorageDriver`](./local-storage.md). For tab-scoped state that survives a refresh, use [`PlainSessionStorageDriver`](./session-storage.md).
+
+## Usage
+
+```ts
+import { RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({
+  driver: new RunTimeDriver(),
+});
+
+cache.set("name", "Hasan");
+cache.get("name");                  // "Hasan"
+// Reload — gone.
+```
+
+Or two managers, two stores:
+
+```ts
+const a = new RunTimeDriver();
+const b = new RunTimeDriver();
+a.set("name", "from-a");
+b.set("name", "from-b");
+a.get("name");                      // "from-a"
+b.get("name");                      // "from-b"
+```
+
+## TTL
+
+Works the same as the storage-backed drivers — `cache.set(key, value, expiresAfterSeconds)`. A read past the window returns the default and drops the entry.
+
+```ts
+cache.set("ttl.test", "abc", 60);
+// ... 61 seconds later ...
+cache.get("ttl.test", null);        // null — entry has been removed
+```
+
+## SSR
+
+This is the safe default when `localStorage` / `sessionStorage` aren't available:
+
+```ts
+const driver = typeof window === "undefined"
+  ? new RunTimeDriver()
+  : new PlainLocalStorageDriver();
+
+setCacheConfigurations({ driver });
+```
+
+Server-rendered pages see an empty runtime cache (each request creates fresh state if you construct per-request), then the client takes over with its own driver on the next render.
+
+## Known bug
+
+`has(missingKey)` returns `true`. The base engine's `has()` is `getItem(key) !== null`, but `RunTimeDriver.getItem` returns `undefined` (the default value) for misses. `undefined !== null` is `true`, so missing keys report as present.
+
+Workaround until a fix lands:
+
+```ts
+function safeHas(key: string): boolean {
+  return cache.get(key, null) !== null;
+}
+```
+
+The skipped test sits at `src/__tests__/runtime-driver.test.ts` — re-enable it after fixing.

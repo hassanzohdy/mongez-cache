@@ -1,0 +1,431 @@
+# @mongez/cache — full reference
+
+> A framework-agnostic cache facade with pluggable drivers — localStorage, sessionStorage, in-memory, encrypted. This is the concatenated reference; load `llms.txt` for the structured index instead.
+
+## Install
+
+```sh
+yarn add @mongez/cache
+```
+
+## Public exports
+
+```ts
+import cache, {
+  CacheManager,
+  BaseCacheEngine,
+  PlainLocalStorageDriver,
+  PlainSessionStorageDriver,
+  EncryptedLocalStorageDriver,
+  EncryptedSessionStorageDriver,
+  RunTimeDriver,
+  setCacheConfigurations,
+  getCacheConfigurations,
+  getCacheConfig,
+  type CacheDriverInterface,
+  type CacheManagerInterface,
+  type CacheConfigurations,
+} from "@mongez/cache";
+```
+
+The default export is a ready-to-use `CacheManager` instance — call `setCacheConfigurations({ driver })` once at boot to point it at a backend.
+
+## The driver contract
+
+```ts
+type CacheDriverInterface = {
+  set(key: string, value: any, expiresAfter?: number): CacheDriverInterface;
+  get(key: string, defaultValue?: any): any;
+  has(key: string): boolean;
+  remove(key: string): CacheDriverInterface;
+  clear(): CacheDriverInterface;
+  setPrefixKey(key: string): CacheDriverInterface;
+  getPrefixKey(): string;
+  setValueParser(parser: any): CacheDriverInterface;
+  setValueConverter(converter: any): CacheDriverInterface;
+};
+```
+
+Every driver in the package implements this. Custom drivers extend `BaseCacheEngine` and inherit the contract.
+
+## The CacheManager facade
+
+```ts
+import cache, { CacheManager } from "@mongez/cache";
+
+cache.set(...);
+cache.get(...);
+cache.remove(...);
+cache.has(...);
+cache.clear();
+cache.setPrefixKey("scoped-");
+cache.getPrefixKey();
+cache.setDriver(driver);
+cache.getDriver();
+cache.setValueConverter(fn);
+cache.setValueParser(fn);
+```
+
+Use the shipped singleton for the typical "one cache per app" pattern. Build a second manager when you need sibling stores with different prefixes / drivers:
+
+```ts
+const sessionStore = new CacheManager();
+sessionStore.setDriver(new PlainSessionStorageDriver());
+sessionStore.setPrefixKey("session-");
+```
+
+## Configuration
+
+```ts
+type CacheConfigurations = {
+  driver: CacheDriverInterface;
+  prefix?: string;
+  expiresAfter?: number;                // seconds; per-entry default
+  valueConverter?: (value: any) => any;
+  valueParer?: (value: any) => any;      // (sic — see CHANGELOG)
+  encryption?: {
+    encrypt: (value: any) => any;
+    decrypt: (value: any) => any;
+  };
+};
+
+setCacheConfigurations(configurations: CacheConfigurations): void
+getCacheConfigurations(): Partial<CacheConfigurations>
+getCacheConfig<K extends keyof CacheConfigurations>(key: K): CacheConfigurations[K] | undefined
+```
+
+`setCacheConfigurations`:
+- Installs the driver on the default `cache` manager.
+- Applies prefix / value-converter / value-parser to that driver.
+- Records the rest in a module-level singleton for later reads.
+
+```ts
+import { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({
+  driver: new PlainLocalStorageDriver(),
+  prefix: "myapp-",
+  expiresAfter: 60 * 60,                // 1 hour default
+});
+```
+
+## PlainLocalStorageDriver
+
+```ts
+import { PlainLocalStorageDriver } from "@mongez/cache";
+
+const driver = new PlainLocalStorageDriver();
+driver.set("name", "Hasan");
+driver.get("name");                     // "Hasan"
+driver.has("name");                     // true
+driver.remove("name");
+driver.clear();
+```
+
+JSON-serializes values into an envelope `{data, expiresAt}` before writing. Reads parse the envelope and check expiry. A corrupted entry returns the default value silently.
+
+## PlainSessionStorageDriver
+
+Same contract; backed by `window.sessionStorage`. Cleared when the tab closes.
+
+## EncryptedLocalStorageDriver / EncryptedSessionStorageDriver
+
+Require an encrypt/decrypt pair in configuration:
+
+```ts
+import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
+import { EncryptedLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
+
+setEncryptionConfigurations({ key: "app-secret" });
+
+setCacheConfigurations({
+  driver: new EncryptedLocalStorageDriver(),
+  encryption: { encrypt, decrypt },
+});
+```
+
+Values pass through `encrypt` on write and `decrypt` on read. The pair is looked up via `getCacheConfig("encryption")` on every operation, so rotating it doesn't require new driver instances.
+
+**Known bug**: `expiresAfter` is ignored — encrypted entries never expire automatically (`drivers/EncryptedLocalStorageDriver.ts:12`).
+
+## RunTimeDriver
+
+```ts
+import { RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({ driver: new RunTimeDriver() });
+
+cache.set("name", "Hasan");
+cache.get("name");                      // "Hasan"
+// Reload — gone.
+```
+
+In-memory map. Two `RunTimeDriver` instances on the same page have independent stores. Respects TTL via the same envelope mechanism as the storage-backed drivers.
+
+**Known bug**: `has(missingKey)` returns `true` (`drivers/RunTimeDriver.ts:24`).
+
+## TTL — per call or global
+
+Per call (third argument to `set`, in seconds):
+
+```ts
+cache.set("token", "abc", 60 * 15);     // 15 minutes
+```
+
+Global default (used when `set` omits the per-call argument):
+
+```ts
+setCacheConfigurations({
+  driver: new PlainLocalStorageDriver(),
+  expiresAfter: 60 * 60,
+});
+
+cache.set("user", payload);             // expires in 1 hour
+cache.set("session", value, 60);        // overrides to 1 minute
+```
+
+Reads past the expiry window return the default and drop the entry.
+
+## Prefixing
+
+```ts
+setCacheConfigurations({
+  driver: new PlainLocalStorageDriver(),
+  prefix: "shop-",
+});
+
+cache.set("user", value);
+// On disk: { "shop-user": "{...}" }
+```
+
+Or directly on a driver:
+
+```ts
+driver.setPrefixKey("shop-");
+driver.getPrefixKey();                  // "shop-"
+```
+
+Prefixes are not enforced — overlapping prefixes across drivers share storage. Pick a stable string per app.
+
+## Custom serialization
+
+Override the JSON conversion at the configuration level:
+
+```ts
+setCacheConfigurations({
+  driver: new PlainLocalStorageDriver(),
+  valueConverter: (v) => myEncode(v),
+  valueParer: (v) => myDecode(v),
+});
+```
+
+Or per driver:
+
+```ts
+driver
+  .setValueConverter((v) => myEncode(v))
+  .setValueParser((v) => myDecode(v));
+```
+
+## Custom drivers
+
+Extend `BaseCacheEngine`:
+
+```ts
+import { BaseCacheEngine } from "@mongez/cache";
+
+class CookieDriver extends BaseCacheEngine {
+  public storage = {
+    getItem: (k) => /* read cookie */,
+    setItem: (k, v) => /* write cookie */,
+    removeItem: (k) => /* expire cookie */,
+    clear: () => /* expire all known keys */,
+  };
+}
+```
+
+The base engine handles:
+- the `{data, expiresAt}` envelope,
+- expiration checks on read,
+- prefix application,
+- JSON serialization (or your override),
+- fall-through to the default on parse errors.
+
+Only `storage` is required; override `convertValue` / `parseValue` if your backend needs a different shape (the `RunTimeDriver` does this — it stores objects directly rather than JSON strings).
+
+## Using with @mongez/atom
+
+`@mongez/atom`'s `persist` option accepts any `PersistAdapter<V>`:
+
+```ts
+type PersistAdapter<V = unknown> = {
+  get(key: string): V | undefined | Promise<V | undefined>;
+  set(key: string, value: V): void | Promise<void>;
+  remove(key: string): void | Promise<void>;
+};
+```
+
+`@mongez/cache`'s manager / driver shape matches by name. The thin wrapper below normalizes return values so atom's TypeScript sees `void` on writes:
+
+```ts
+import { createAtom } from "@mongez/atom";
+import cache from "@mongez/cache";
+
+const userAtom = createAtom({
+  key: "auth.user",
+  default: { name: "Anon" },
+  persist: {
+    get: (key) => cache.get(key),
+    set: (key, value) => {
+      cache.set(key, value);
+    },
+    remove: (key) => {
+      cache.remove(key);
+    },
+  },
+});
+```
+
+For a long-lived shared adapter, extract the wrapper:
+
+```ts
+// adapters/cacheAdapter.ts
+import cache from "@mongez/cache";
+
+export const cacheAdapter = {
+  get: (key: string) => cache.get(key),
+  set: (key: string, value: unknown) => {
+    cache.set(key, value);
+  },
+  remove: (key: string) => {
+    cache.remove(key);
+  },
+};
+```
+
+Atom consumers stay terse:
+
+```ts
+import { cacheAdapter } from "./adapters/cacheAdapter";
+
+const themeAtom = createAtom({
+  key: "ui.theme",
+  default: "light",
+  persist: cacheAdapter,
+});
+```
+
+This composes well with the encrypted drivers — tokens / refresh tokens / PII end up encrypted on disk without leaking driver details into atom definitions.
+
+## SSR
+
+Web-Storage drivers throw on the server. Pick a different driver per environment:
+
+```ts
+const driver = typeof window === "undefined"
+  ? new RunTimeDriver()
+  : new PlainLocalStorageDriver();
+
+setCacheConfigurations({ driver });
+```
+
+Or write a custom cookie-backed driver — the contract is small.
+
+## Patterns
+
+### Multi-app domain — namespace by prefix
+
+```ts
+// in app A
+setCacheConfigurations({
+  driver: new PlainLocalStorageDriver(),
+  prefix: "app-a-",
+});
+
+// in app B (same domain)
+setCacheConfigurations({
+  driver: new PlainLocalStorageDriver(),
+  prefix: "app-b-",
+});
+```
+
+### Token storage with short TTL
+
+```ts
+cache.set("session.token", token, 60 * 30);                  // 30 minutes
+cache.set("session.refreshToken", refreshToken, 60 * 60 * 24); // 24 hours
+```
+
+### Encrypted token storage
+
+```ts
+import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
+import { EncryptedLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
+
+setEncryptionConfigurations({ key: "app-secret" });
+
+setCacheConfigurations({
+  driver: new EncryptedLocalStorageDriver(),
+  encryption: { encrypt, decrypt },
+});
+
+cache.set("session.token", token);
+// On disk: encrypted cypher, not the bare token.
+```
+
+### Multi-store separation
+
+```ts
+import { CacheManager, PlainLocalStorageDriver, PlainSessionStorageDriver } from "@mongez/cache";
+
+const longLived = new CacheManager();
+longLived.setDriver(new PlainLocalStorageDriver()).setPrefixKey("pref-");
+
+const ephemeral = new CacheManager();
+ephemeral.setDriver(new PlainSessionStorageDriver()).setPrefixKey("session-");
+
+longLived.set("theme", "dark");
+ephemeral.set("scroll.y", 312);
+```
+
+## Lifecycle events
+
+`@mongez/cache` does not emit lifecycle events. If you need write-through subscriptions, layer a wrapper:
+
+```ts
+import { EventBus } from "@mongez/events";
+import cache from "@mongez/cache";
+
+const events = new EventBus();
+
+export const observableCache = {
+  set(key: string, value: unknown, expiresAfter?: number) {
+    cache.set(key, value, expiresAfter);
+    events.trigger("cache.set", { key, value });
+  },
+  get: cache.get.bind(cache),
+  remove(key: string) {
+    cache.remove(key);
+    events.trigger("cache.remove", { key });
+  },
+  on: events.on.bind(events),
+};
+```
+
+This is intentionally not in the core package — the cache is meant to be small.
+
+## Known bugs
+
+- **`EncryptedLocalStorageDriver.set` ignores `expiresAfter`.** Encrypted entries never expire. (`drivers/EncryptedLocalStorageDriver.ts:12`)
+- **`RunTimeDriver.has(missingKey)` returns `true`.** The base engine's `has()` checks `!== null`, runtime returns `undefined`. (`drivers/RunTimeDriver.ts:24`)
+- **`valueParer` typo** (missing `s` in `Parser`). Both the configuration field and the typo are preserved for backward compatibility. (`types.ts:67`)
+- **`clear()` wipes the entire backend, not just keys under the prefix.** Use carefully on shared domains.
+
+See the CHANGELOG for the full list.
+
+## What this package does NOT do
+
+- Subscriptions / events on writes → wrap the cache or use `@mongez/atom` with a cache-backed `persist` adapter.
+- IndexedDB driver → build one by extending `BaseCacheEngine`.
+- Cookie driver → same — build one with the `BaseCacheEngine` shape, or use a SSR-friendly cookie adapter on `@mongez/atom`'s `persist` slot directly.
+- TypeScript-typed values per key → the `any`-typed driver shape is intentional. Wrap call sites for stronger guarantees.
