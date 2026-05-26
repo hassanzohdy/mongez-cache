@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-manager
-description: Covers the CacheManager API — how to bootstrap it, configure drivers, set TTLs, use prefixes, and create multiple independent manager instances.
-when_to_use: User imports CacheManager or calls setCacheConfigurations from @mongez/cache, asks how to configure the cache, set a prefix, change drivers at runtime, or create sibling cache managers with different backends.
+description: |
+  Reference for the `CacheManager` facade, the default `cache` singleton, and config helpers — `setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`, `setDriver` / `getDriver`, `setPrefixKey`, plus building sibling managers with distinct prefixes / backends.
+  TRIGGER when: code imports `cache` (default), `CacheManager`, `setCacheConfigurations`, `getCacheConfigurations`, or `getCacheConfig` from `@mongez/cache`; user asks "how do I bootstrap `@mongez/cache`", "how do I hot-swap the driver", or "how do I have two cache managers side by side"; `import cache, { CacheManager } from "@mongez/cache"`.
+  SKIP: per-driver options (`PlainLocalStorageDriver` etc.) — use `mongez-cache-drivers`; daily `cache.set` / `cache.get` / `cache.has` calls — use `mongez-cache-basic-usage`; encrypted setup — use `mongez-cache-encryption` / `mongez-cache-encrypted-cache`; building a custom backend — use `mongez-cache-custom-drivers`.
 ---
 
 # Cache manager

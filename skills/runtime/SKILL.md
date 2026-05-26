@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-runtime
-description: Documents RunTimeDriver — the in-memory cache driver used for tests, SSR fallback, and ephemeral page-lifetime state, including its known has() bug.
-when_to_use: User imports RunTimeDriver from @mongez/cache, asks about in-memory caching, test isolation for cache state, SSR-safe cache drivers, or ephemeral caching that should not persist across page reloads.
+description: |
+  Reference for `RunTimeDriver` — the in-memory `Record<string, {value, expiresAt?}>` driver used for tests, SSR fallback, and ephemeral page-lifetime state, including its overridden `getItem` / `setItem` / `convertValue` / `parseValue` and the known `has(missingKey) === true` bug.
+  TRIGGER when: code calls `new RunTimeDriver()` or imports `RunTimeDriver` from `@mongez/cache`; user asks "how do I get an in-memory cache for tests", "how do I make cache SSR-safe in Node", or "why does `has()` return `true` for missing keys"; `import { RunTimeDriver } from "@mongez/cache"`.
+  SKIP: localStorage-backed persistence — use `mongez-cache-local-storage`; tab-scoped storage — use `mongez-cache-session-storage`; encrypted drivers — use `mongez-cache-encryption`; building a brand-new backend — use `mongez-cache-custom-drivers`.
 ---
 
 # RunTimeDriver

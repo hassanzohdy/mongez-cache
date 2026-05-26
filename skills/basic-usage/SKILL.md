@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-basic-usage
-description: Using the cache singleton — set, get, remove, clear, TTL, has, key prefixing, and the @mongez/atom persist adapter pattern.
-when_to_use: User wants to read or write cache entries, check existence, expire entries, wipe storage, or wire up @mongez/atom's persist slot with the cache.
+description: |
+  Using the `cache` singleton — `set`, `get`, `remove`, `clear`, `has`, per-call/global TTL, key prefixing, and the `@mongez/atom` `persist` adapter pattern.
+  TRIGGER when: code calls `cache.set`, `cache.get`, `cache.has`, `cache.remove`, `cache.clear`, `getCacheConfigurations`, or `getCacheConfig` from `@mongez/cache`; user asks "how do I write/read/expire/remove a cache entry" or "how do I wire `@mongez/cache` into `@mongez/atom`'s `persist` slot"; `import cache, { setCacheConfigurations } from "@mongez/cache"`.
+  SKIP: configuring or swapping drivers themselves — use `mongez-cache-drivers` or `mongez-cache-manager`; encrypted at-rest reads/writes — use `mongez-cache-encrypted-cache` or `mongez-cache-encryption`; building a custom backend — use `mongez-cache-custom-drivers`.
 ---
 
 # @mongez/cache — Basic Usage

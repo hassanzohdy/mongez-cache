@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-encryption
-description: Documents EncryptedLocalStorageDriver and EncryptedSessionStorageDriver — how to wire an encrypt/decrypt pair, rotate keys, bring custom encryption, and the known TTL bug on encrypted drivers.
-when_to_use: User imports EncryptedLocalStorageDriver or EncryptedSessionStorageDriver from @mongez/cache, asks about storing auth tokens or PII encrypted in localStorage, key rotation for cached values, or using @mongez/encryption with @mongez/cache.
+description: |
+  Reference for `EncryptedLocalStorageDriver` and `EncryptedSessionStorageDriver` — class signatures, wiring an encrypt/decrypt pair via `setCacheConfigurations`, key rotation through `getCacheConfig("encryption")`, bringing-your-own encryptor, and the known TTL bug.
+  TRIGGER when: code imports `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver` from `@mongez/cache`; user asks "how do encrypted cache drivers work", "what's the encryption pair contract", or "why don't encrypted entries expire"; `import { EncryptedLocalStorageDriver } from "@mongez/cache"`.
+  SKIP: full step-by-step encrypted setup with `@mongez/encryption` and atom adapters — use `mongez-cache-encrypted-cache`; plain (unencrypted) drivers — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 ---
 
 # Encryption

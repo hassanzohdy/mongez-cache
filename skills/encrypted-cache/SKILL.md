@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-encrypted-cache
-description: Setting up and using EncryptedLocalStorageDriver or EncryptedSessionStorageDriver to store values encrypted at rest.
-when_to_use: User wants to encrypt cached values, use EncryptedLocalStorageDriver or EncryptedSessionStorageDriver, integrate @mongez/encryption, or rotate encryption keys.
+description: |
+  End-to-end setup for `EncryptedLocalStorageDriver` and `EncryptedSessionStorageDriver` — wiring `@mongez/encryption` (or a custom encrypt/decrypt pair), key rotation, prefix, TTL behavior, and persisting `@mongez/atom` with encrypted storage at rest.
+  TRIGGER when: code imports `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver` from `@mongez/cache`, or passes `encryption: { encrypt, decrypt }` to `setCacheConfigurations`; user asks "how do I encrypt cached tokens / PII", "how do I integrate `@mongez/encryption` with `@mongez/cache`", or "how do I rotate the cache encryption key"; `import { encrypt, decrypt } from "@mongez/encryption"` alongside cache imports.
+  SKIP: pure driver reference (signatures, known TTL bug) — use `mongez-cache-encryption`; plain (unencrypted) localStorage / sessionStorage drivers — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 ---
 
 # @mongez/cache — Encrypted Storage

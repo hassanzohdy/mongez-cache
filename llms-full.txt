@@ -50,6 +50,9 @@ Every driver in the package implements this. Custom drivers extend `BaseCacheEng
 
 ## The CacheManager facade
 
+> **Auto-trigger:** code imports `cache` (default), `CacheManager`, `setCacheConfigurations`, `getCacheConfigurations`, or `getCacheConfig` from `@mongez/cache`; user asks "how do I bootstrap `@mongez/cache`", "how do I hot-swap the driver", or "how do I have two cache managers side by side"; `import cache, { CacheManager } from "@mongez/cache"`.
+> **Skip when:** per-driver options (`PlainLocalStorageDriver` etc.) — use `mongez-cache-drivers`; daily `cache.set` / `cache.get` / `cache.has` calls — use `mongez-cache-basic-usage`; encrypted setup — use `mongez-cache-encryption` / `mongez-cache-encrypted-cache`; building a custom backend — use `mongez-cache-custom-drivers`.
+
 ```ts
 import cache, { CacheManager } from "@mongez/cache";
 
@@ -111,6 +114,9 @@ setCacheConfigurations({
 
 ## PlainLocalStorageDriver
 
+> **Auto-trigger:** code calls `new PlainLocalStorageDriver()` or imports `PlainLocalStorageDriver` from `@mongez/cache`; user asks "how do I persist cache across reloads", "what's the on-disk format for `@mongez/cache`", or "how do I handle the localStorage quota / SSR"; `import { PlainLocalStorageDriver } from "@mongez/cache"`.
+> **Skip when:** tab-scoped storage — use `mongez-cache-session-storage`; in-memory ephemeral cache — use `mongez-cache-runtime`; encrypted-at-rest variant — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; choosing among all drivers at once — use `mongez-cache-drivers`.
+
 ```ts
 import { PlainLocalStorageDriver } from "@mongez/cache";
 
@@ -126,9 +132,15 @@ JSON-serializes values into an envelope `{data, expiresAt}` before writing. Read
 
 ## PlainSessionStorageDriver
 
+> **Auto-trigger:** code calls `new PlainSessionStorageDriver()` or imports `PlainSessionStorageDriver` from `@mongez/cache`; user asks "how do I cache scroll position / draft form data per tab", "how do I make a wizard remember progress through refreshes only", or "how do I use sessionStorage with `@mongez/cache`"; `import { PlainSessionStorageDriver } from "@mongez/cache"`.
+> **Skip when:** cross-session persistence — use `mongez-cache-local-storage`; in-memory only cache — use `mongez-cache-runtime`; encrypted variant of session storage — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; choosing among all drivers — use `mongez-cache-drivers`.
+
 Same contract; backed by `window.sessionStorage`. Cleared when the tab closes.
 
 ## EncryptedLocalStorageDriver / EncryptedSessionStorageDriver
+
+> **Auto-trigger:** code imports `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver` from `@mongez/cache`; user asks "how do encrypted cache drivers work", "what's the encryption pair contract", or "why don't encrypted entries expire"; `import { EncryptedLocalStorageDriver } from "@mongez/cache"`.
+> **Skip when:** full step-by-step encrypted setup with `@mongez/encryption` and atom adapters — use `mongez-cache-encrypted-cache`; plain (unencrypted) drivers — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 
 Require an encrypt/decrypt pair in configuration:
 
@@ -149,6 +161,9 @@ Values pass through `encrypt` on write and `decrypt` on read. The pair is looked
 **Known bug**: `expiresAfter` is ignored — encrypted entries never expire automatically (`drivers/EncryptedLocalStorageDriver.ts:12`).
 
 ## RunTimeDriver
+
+> **Auto-trigger:** code calls `new RunTimeDriver()` or imports `RunTimeDriver` from `@mongez/cache`; user asks "how do I get an in-memory cache for tests", "how do I make cache SSR-safe in Node", or "why does `has()` return `true` for missing keys"; `import { RunTimeDriver } from "@mongez/cache"`.
+> **Skip when:** localStorage-backed persistence — use `mongez-cache-local-storage`; tab-scoped storage — use `mongez-cache-session-storage`; encrypted drivers — use `mongez-cache-encryption`; building a brand-new backend — use `mongez-cache-custom-drivers`.
 
 ```ts
 import { RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
@@ -228,6 +243,9 @@ driver
 ```
 
 ## Custom drivers
+
+> **Auto-trigger:** code declares `class X extends BaseCacheEngine` or imports `BaseCacheEngine` from `@mongez/cache`; user asks "how do I build a custom cache driver", "how do I back the cache with IndexedDB / cookies", or "how do I override the `{data, expiresAt}` envelope / serialization"; `import { BaseCacheEngine } from "@mongez/cache"`.
+> **Skip when:** picking among the shipped drivers — use `mongez-cache-drivers`; in-memory runtime driver — use `mongez-cache-runtime`; encrypted drivers — use `mongez-cache-encryption`; everyday `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 
 Extend `BaseCacheEngine`:
 
@@ -332,6 +350,9 @@ setCacheConfigurations({ driver });
 Or write a custom cookie-backed driver — the contract is small.
 
 ## Patterns
+
+> **Auto-trigger:** user asks "show me an end-to-end `@mongez/cache` example", "how do I persist `@mongez/atom` atoms with `@mongez/cache`", "how do I namespace multiple apps on one domain", "how do I subscribe to cache writes", or "how do I do SSR with `@mongez/cache`"; pull-in pattern: `import { createAtom } from "@mongez/atom"` alongside `import cache from "@mongez/cache"`.
+> **Skip when:** bare API surface of a single function or driver — use `mongez-cache-basic-usage`, `mongez-cache-manager`, or the per-driver skills; building a brand-new driver — use `mongez-cache-custom-drivers`; first-time discovery of the package — use `mongez-cache-overview`.
 
 ### Multi-app domain — namespace by prefix
 

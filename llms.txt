@@ -9,21 +9,29 @@ Every export ships from the package root.
 ## Docs
 
 - [Overview](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/overview.md): Pitch, install, mental model.
+  - *Auto-trigger:* first-time use of `@mongez/cache`, or user asks what the package is, which drivers ship, and when to choose it over raw Web Storage.
 - [README](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/README.md): Marketing-style index.
 - [Changelog](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/CHANGELOG.md): Release notes and documented bugs.
 
 ## Reference (by area)
 
 - [Cache manager](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/manager.md): `cache` (default singleton), `CacheManager`, configuration (`setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`), prefix, TTL.
+  - *Auto-trigger:* code bootstraps the cache, hot-swaps the driver, or constructs sibling `CacheManager` instances with different prefixes / backends.
 - [Local storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/local-storage.md): `PlainLocalStorageDriver`. localStorage-backed JSON cache.
+  - *Auto-trigger:* code uses `PlainLocalStorageDriver`, or user asks about persistent cross-reload browser caching, the on-disk envelope, or localStorage quota and SSR caveats.
 - [Session storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/session-storage.md): `PlainSessionStorageDriver`. Same contract, sessionStorage backend.
+  - *Auto-trigger:* code uses `PlainSessionStorageDriver`, or user wants tab-scoped state (scroll position, drafts, wizard progress) that survives refresh but not tab close.
 - [Runtime driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/runtime.md): `RunTimeDriver`. In-memory map for tests, SSR fallback, ephemeral state.
+  - *Auto-trigger:* code uses `RunTimeDriver`, or user asks about in-memory cache for tests, SSR fallback in Node, or the known `has(missingKey)` bug.
 - [Encryption](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/encryption.md): `EncryptedLocalStorageDriver`, `EncryptedSessionStorageDriver`, encrypt/decrypt configuration.
+  - *Auto-trigger:* code uses `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver`, or user asks how to encrypt cached tokens / PII or rotate encryption keys.
 - [Custom drivers](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/custom-drivers.md): Extending `BaseCacheEngine` with IndexedDB, cookies, or remote backends.
+  - *Auto-trigger:* code extends `BaseCacheEngine`, or user asks how to back the cache with IndexedDB / cookies or override the envelope / serialization.
 
 ## Recipes
 
 - [Recipes](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/recipes.md): Multi-app prefixing, TTL per call vs. global, encrypted tokens, atom persistence wiring, SSR fallback to runtime driver.
+  - *Auto-trigger:* user wants end-to-end examples — persisting `@mongez/atom` atoms, multi-app prefixing, SSR fallback, encrypted tokens, or write subscriptions.
 
 ## Quick rules
 

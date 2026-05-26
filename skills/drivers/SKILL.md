@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-drivers
-description: How to configure each @mongez/cache driver — localStorage, sessionStorage, runtime memory — including prefix, global TTL, and custom serialization.
-when_to_use: User wants to configure a cache driver, set a prefix or default TTL, swap drivers at runtime, build a custom driver, or needs SSR-safe driver selection.
+description: |
+  Configure each shipped `@mongez/cache` driver — `PlainLocalStorageDriver`, `PlainSessionStorageDriver`, `RunTimeDriver` — with `setCacheConfigurations`, including prefix, global TTL, custom serialization (`valueConverter` / `valueParer`), and SSR-safe selection.
+  TRIGGER when: code calls `setCacheConfigurations`, `new PlainLocalStorageDriver`, `new PlainSessionStorageDriver`, `new RunTimeDriver`, `setValueConverter`, or `setValueParser` from `@mongez/cache`; user asks "how do I pick a cache driver", "how do I set a prefix or default TTL", or "how do I make cache SSR-safe"; `import { setCacheConfigurations, ... } from "@mongez/cache"`.
+  SKIP: encrypted driver setup (`EncryptedLocalStorageDriver` / `EncryptedSessionStorageDriver`) — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; extending `BaseCacheEngine` for IndexedDB/cookies — use `mongez-cache-custom-drivers`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 ---
 
 # @mongez/cache — Driver Configuration

@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-session-storage
-description: Documents PlainSessionStorageDriver — tab-scoped caching that survives refreshes but not tab closes, with identical API to the localStorage driver.
-when_to_use: User imports PlainSessionStorageDriver from @mongez/cache, asks about tab-scoped storage, sessionStorage-backed caching, or storing draft/scroll state that should vanish when the tab closes.
+description: |
+  Reference for `PlainSessionStorageDriver` — tab-scoped `window.sessionStorage` backend with the same envelope, TTL, prefix, and corruption-recovery semantics as the localStorage driver; data survives refresh but not tab close.
+  TRIGGER when: code calls `new PlainSessionStorageDriver()` or imports `PlainSessionStorageDriver` from `@mongez/cache`; user asks "how do I cache scroll position / draft form data per tab", "how do I make a wizard remember progress through refreshes only", or "how do I use sessionStorage with `@mongez/cache`"; `import { PlainSessionStorageDriver } from "@mongez/cache"`.
+  SKIP: cross-session persistence — use `mongez-cache-local-storage`; in-memory only cache — use `mongez-cache-runtime`; encrypted variant of session storage — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; choosing among all drivers — use `mongez-cache-drivers`.
 ---
 
 # PlainSessionStorageDriver

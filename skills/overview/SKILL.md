@@ -1,7 +1,9 @@
 ---
 name: mongez-cache-overview
-description: Explains what @mongez/cache is, which drivers it ships, and when to choose it over raw Web Storage.
-when_to_use: User asks what @mongez/cache is, whether to use it, how it compares to raw localStorage/sessionStorage, or what drivers are available.
+description: |
+  Pitch, install, mental model, and the full public surface of `@mongez/cache` — the `cache` singleton, `CacheManager`, `BaseCacheEngine`, the plain / encrypted / runtime drivers, configuration helpers (`setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`), and `CacheDriverInterface` / `CacheManagerInterface` / `CacheConfigurations` types.
+  TRIGGER when: a new file pulls in `@mongez/cache` for the first time or runs `yarn add @mongez/cache`; user asks "what is `@mongez/cache`", "should I use this over raw `localStorage`", or "what drivers ship with `@mongez/cache`"; `import cache, { ... } from "@mongez/cache"`.
+  SKIP: deep dives on a specific driver — use `mongez-cache-local-storage`, `mongez-cache-session-storage`, `mongez-cache-runtime`, or `mongez-cache-encryption`; bootstrap / configuration mechanics — use `mongez-cache-manager` or `mongez-cache-drivers`; copy-paste recipes — use `mongez-cache-recipes`.
 ---
 
 # @mongez/cache — Overview
