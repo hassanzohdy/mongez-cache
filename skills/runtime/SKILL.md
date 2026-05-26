@@ -79,16 +79,6 @@ setCacheConfigurations({ driver });
 
 Server-rendered pages see an empty runtime cache (each request creates fresh state if you construct per-request), then the client takes over with its own driver on the next render.
 
-## Known bug
+## `has()` semantics
 
-`has(missingKey)` returns `true`. The base engine's `has()` is `getItem(key) !== null`, but `RunTimeDriver.getItem` returns `undefined` (the default value) for misses. `undefined !== null` is `true`, so missing keys report as present.
-
-Workaround until a fix lands:
-
-```ts
-function safeHas(key: string): boolean {
-  return cache.get(key, null) !== null;
-}
-```
-
-The skipped test sits at `src/__tests__/runtime-driver.test.ts` — re-enable it after fixing.
+`has(missingKey)` returns `false`. `RunTimeDriver.getItem` returns `null` (not `undefined`) for misses, matching the Web Storage API contract that `BaseCacheEngine.has()` relies on (`getItem(...) !== null`). Coverage lives at `src/__tests__/runtime-driver.test.ts`.

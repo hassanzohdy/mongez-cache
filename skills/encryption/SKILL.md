@@ -101,26 +101,15 @@ setCacheConfigurations({
 
 Old entries become unreadable when you drop the old key from `decrypt`. Have a migration plan for sensitive data.
 
-## Known bug
+## TTL
 
-`EncryptedLocalStorageDriver.set` ignores `expiresAfter`. The plain drivers wrap every value in `{data, expiresAt}` and respect per-entry TTL; the encrypted variant writes only the cypher and skips the envelope. As a consequence, encrypted entries never expire automatically — `cache.set("token", value, 60)` on an encrypted driver stores `value` indefinitely.
-
-Workaround: store the TTL inside the value yourself.
+`EncryptedLocalStorageDriver.set` respects `expiresAfter`. Values are wrapped in the same `{data, expiresAt}` envelope as the plain drivers before encryption, then decrypted and unwrapped on read with the same expiry check.
 
 ```ts
-cache.set("token", { value: rawToken, expiresAt: Date.now() + 60_000 });
-
-function readTokenOrNull() {
-  const entry = cache.get("token");
-  if (!entry || entry.expiresAt < Date.now()) {
-    cache.remove("token");
-    return null;
-  }
-  return entry.value;
-}
+cache.set("token", "abc", 60);     // 60-second TTL — entry is dropped on the next read past the window
 ```
 
-The skipped test lives at `src/__tests__/encrypted-local-storage.test.ts` — re-enable after fixing.
+Backward compatibility: legacy cyphers written before the envelope was introduced (raw value, no `data` key) are still readable. The driver returns the decrypted payload as-is with no expiration when the shape doesn't match the envelope. Coverage lives at `src/__tests__/encrypted-local-storage.test.ts`.
 
 ## Gotchas
 

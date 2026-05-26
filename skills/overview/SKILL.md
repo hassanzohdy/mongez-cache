@@ -80,5 +80,4 @@ import type {
 - **`setCacheConfigurations` must be called before first use.** The singleton's driver is `undefined` until you call it. Calling `cache.set(...)` before configuring throws.
 - **Web Storage drivers throw on the server** (`localStorage` does not exist in Node). Gate driver selection with `typeof window === "undefined"` and fall back to `RunTimeDriver` for SSR paths.
 - **`RunTimeDriver` is not shared.** Two instances have independent stores. There is no global in-memory registry.
-- **`has(key)` on `RunTimeDriver` has a known bug**: it may return `true` for missing keys in some versions (base engine checks `!== null`, but missing keys return `undefined`). Use `get(key) !== null` as a workaround when targeting that driver.
 - **Related packages**: `@mongez/atom` (state atoms with a `persist` slot), `@mongez/encryption` (CryptoJS-backed encrypt/decrypt for the encrypted drivers).
