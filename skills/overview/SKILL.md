@@ -8,6 +8,39 @@ description: |
 
 # @mongez/cache — Overview
 
+## Install
+
+```sh
+# npm
+npm install @mongez/cache
+
+# yarn
+yarn add @mongez/cache
+
+# pnpm
+pnpm add @mongez/cache
+```
+
+`@mongez/encryption` is an optional peer — install it only when using the `Encrypted*` drivers.
+
+## Quick example
+
+Pick a backend at boot, then use the same `set`/`get` API everywhere — TTL, prefixing, and default-fallbacks built in:
+
+```ts
+import cache, { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({
+  driver: new PlainLocalStorageDriver(),
+  prefix: "shop-",          // namespace every key (multi-app domains)
+  expiresAfter: 60 * 60,    // optional default TTL: 1 hour
+});
+
+cache.set("user", { id: 1, name: "Hasan" });
+cache.set("token", "abc123", 60 * 15);   // override the default TTL
+cache.get("user");                        // { id: 1, name: "Hasan" }
+```
+
 ## When to use
 
 Use this skill when someone wants to understand:
@@ -22,13 +55,6 @@ Use this skill when someone wants to understand:
 ### What it is
 
 `@mongez/cache` is a framework-agnostic cache facade. It wraps `localStorage`, `sessionStorage`, and an in-memory map behind a single `cache.set / cache.get / cache.remove / cache.clear` interface. You choose a backend once at boot time; every call site stays the same regardless of which driver is active.
-
-Install:
-
-```sh
-yarn add @mongez/cache
-# add @mongez/encryption only when using the encrypted drivers
-```
 
 ### Available drivers
 
