@@ -74,7 +74,7 @@ Useful when you need a second store with a different prefix without going throug
 
 ## Corruption recovery
 
-If localStorage contains a value that doesn't parse as the expected envelope (manual tampering, schema drift, partial write), the driver returns the default value silently. The malformed entry is left in place — call `remove(key)` to clean it up.
+If localStorage contains a value that doesn't parse as the expected envelope (manual tampering, schema drift, partial write), the driver removes the malformed entry and returns the default value silently. Subsequent reads see a clean miss.
 
 ## SSR
 

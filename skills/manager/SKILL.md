@@ -16,7 +16,7 @@ The `cache` default export is the central entry point. It's a `CacheManager` ins
 import cache from "@mongez/cache";
 
 interface CacheManagerInterface extends CacheDriverInterface {
-  setDriver(driver: CacheDriverInterface): CacheManagerInterface;
+  setDriver(driver: CacheDriverInterface): void;
   getDriver(): CacheDriverInterface;
 }
 ```
@@ -27,7 +27,7 @@ interface CacheManagerInterface extends CacheDriverInterface {
 |---|---|
 | `cache.set(key, value, expiresAfter?)` | Write a value. `expiresAfter` is in seconds. Returns the manager for chaining. |
 | `cache.get(key, defaultValue?)` | Read a value. Returns the default (or `null` from the facade, `undefined` from a driver directly) when the key is missing. |
-| `cache.has(key)` | `true` when the key exists and hasn't expired. |
+| `cache.has(key)` | `true` when the raw storage entry exists. Does **not** check expiry — use `get(key) !== null` for that. |
 | `cache.remove(key)` | Delete a single entry. Returns the manager. |
 | `cache.clear()` | Wipe the entire backing storage. **Not prefix-scoped** — `localStorage.clear()` resets every key in the origin. |
 | `cache.setPrefixKey(p)` / `cache.getPrefixKey()` | Namespace control. |

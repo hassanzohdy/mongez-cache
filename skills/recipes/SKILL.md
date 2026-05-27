@@ -229,10 +229,8 @@ The token sits encrypted on disk; the theme sits plain. The atom code doesn't kn
 `@mongez/cache` doesn't emit events. If you need write-through subscriptions, wrap the cache:
 
 ```ts
-import { EventBus } from "@mongez/events";
+import events from "@mongez/events";
 import cache from "@mongez/cache";
-
-const events = new EventBus();
 
 export const observableCache = {
   set(key: string, value: unknown, expiresAfter?: number) {

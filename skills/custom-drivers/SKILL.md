@@ -108,10 +108,10 @@ Override `convertValue` and `parseValue` whenever your storage backend already a
 
 ## Override `set` / `get` entirely
 
-The encrypted drivers go one step further — they override `set` and `get` themselves and bypass the envelope. That's the right move when:
+The encrypted drivers go one step further — they override `set` and `get` themselves to route values through the encrypt/decrypt pair. They still wrap in the `{data, expiresAt}` envelope before encrypting, so TTL keeps working. That pattern is the right move when:
 
 - You need to transform the entire value (encrypt, compress, sign), not just the on-disk format.
-- TTL is something you're willing to give up or implement separately.
+- You're willing to re-implement the envelope yourself if you also need TTL.
 
 ```ts
 class CompressedDriver extends PlainLocalStorageDriver {
