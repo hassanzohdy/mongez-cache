@@ -2,8 +2,6 @@
 name: mongez-cache-encryption
 description: |
   Reference for `EncryptedLocalStorageDriver` and `EncryptedSessionStorageDriver` — class signatures, wiring an encrypt/decrypt pair via `setCacheConfigurations`, key rotation through `getCacheConfig("encryption")`, bringing-your-own encryptor, TTL via the `{data, expiresAt}` envelope, and legacy-cypher compatibility.
-  TRIGGER when: code imports `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver` from `@mongez/cache`; user asks "how do encrypted cache drivers work", "what's the encryption pair contract", or "how does TTL work on encrypted entries"; `import { EncryptedLocalStorageDriver } from "@mongez/cache"`.
-  SKIP: full step-by-step encrypted setup with `@mongez/encryption` and atom adapters — use `mongez-cache-encrypted-cache`; plain (unencrypted) drivers — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 ---
 
 # Encryption
@@ -76,14 +74,6 @@ setCacheConfigurations({
 ```
 
 The driver does not JSON-serialize values itself — `encrypt` receives the raw input. If you want strings on disk, your `encrypt` is responsible for serialization.
-
-## When to use it
-
-- **Auth tokens** (access tokens, refresh tokens, session IDs).
-- **PII** that would otherwise sit in plaintext localStorage and leak to extensions, devtools snooping, or any script with `window` access.
-- **API keys** that you'd rather not see in a network tab's source map.
-
-For non-sensitive data, prefer the plain drivers — encryption is overhead, and storage-bound code paths run on every read.
 
 ## Key rotation
 

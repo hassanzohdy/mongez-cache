@@ -2,22 +2,9 @@
 name: mongez-cache-encrypted-cache
 description: |
   End-to-end setup for `EncryptedLocalStorageDriver` and `EncryptedSessionStorageDriver` — wiring `@mongez/encryption` (or a custom encrypt/decrypt pair), key rotation, prefix, TTL behavior, and persisting `@mongez/atom` with encrypted storage at rest.
-  TRIGGER when: code imports `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver` from `@mongez/cache`, or passes `encryption: { encrypt, decrypt }` to `setCacheConfigurations`; user asks "how do I encrypt cached tokens / PII", "how do I integrate `@mongez/encryption` with `@mongez/cache`", or "how do I rotate the cache encryption key"; `import { encrypt, decrypt } from "@mongez/encryption"` alongside cache imports.
-  SKIP: pure driver reference (signatures, known TTL bug) — use `mongez-cache-encryption`; plain (unencrypted) localStorage / sessionStorage drivers — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 ---
 
 # @mongez/cache — Encrypted Storage
-
-## When to use
-
-Use this skill when someone needs to:
-
-- Store sensitive values (tokens, PII, user credentials) encrypted in `localStorage` or `sessionStorage`.
-- Configure `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver`.
-- Integrate `@mongez/encryption` as the encrypt/decrypt provider.
-- Supply a custom encrypt/decrypt pair instead of `@mongez/encryption`.
-- Understand the TTL/expiry behavior of the encrypted drivers.
-- Migrate legacy (pre-envelope) encrypted entries.
 
 ## How to use
 

@@ -2,8 +2,6 @@
 name: mongez-cache-local-storage
 description: |
   Reference for `PlainLocalStorageDriver` — `window.localStorage` backend, `{data, expiresAt}` JSON envelope, TTL behavior, corruption recovery, prefix handling, SSR caveats, and localStorage quota gotchas.
-  TRIGGER when: code calls `new PlainLocalStorageDriver()` or imports `PlainLocalStorageDriver` from `@mongez/cache`; user asks "how do I persist cache across reloads", "what's the on-disk format for `@mongez/cache`", or "how do I handle the localStorage quota / SSR"; `import { PlainLocalStorageDriver } from "@mongez/cache"`.
-  SKIP: tab-scoped storage — use `mongez-cache-session-storage`; in-memory ephemeral cache — use `mongez-cache-runtime`; encrypted-at-rest variant — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; choosing among all drivers at once — use `mongez-cache-drivers`.
 ---
 
 # PlainLocalStorageDriver

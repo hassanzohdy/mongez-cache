@@ -1,6 +1,6 @@
 {
   "name": "@mongez/cache",
-  "version": "1.3.4",
+  "version": "1.4.0",
   "description": "Framework-agnostic cache facade with pluggable drivers — localStorage, sessionStorage, runtime memory, plus encrypted variants. One API, key prefixing, TTL, and a PersistAdapter-compatible shape for @mongez/atom.",
   "main": "src/index.ts",
   "sideEffects": false,

@@ -1,38 +1,73 @@
 ---
 name: mongez-cache-overview
 description: |
-  Pitch, install, mental model, and the full public surface of `@mongez/cache` — the `cache` singleton, `CacheManager`, `BaseCacheEngine`, the plain / encrypted / runtime drivers, configuration helpers (`setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`), and `CacheDriverInterface` / `CacheManagerInterface` / `CacheConfigurations` types.
-  TRIGGER when: a new file pulls in `@mongez/cache` for the first time or runs `yarn add @mongez/cache`; user asks "what is `@mongez/cache`", "should I use this over raw `localStorage`", or "what drivers ship with `@mongez/cache`"; `import cache, { ... } from "@mongez/cache"`.
-  SKIP: deep dives on a specific driver — use `mongez-cache-local-storage`, `mongez-cache-session-storage`, `mongez-cache-runtime`, or `mongez-cache-encryption`; bootstrap / configuration mechanics — use `mongez-cache-manager` or `mongez-cache-drivers`; copy-paste recipes — use `mongez-cache-recipes`.
+  @mongez/cache — framework-agnostic cache facade with pluggable drivers (localStorage, sessionStorage, runtime, encrypted variants), TTL, key prefixing, and configurable encryption. Swappable backends without touching call sites.
 ---
 
 # @mongez/cache — Overview
 
+One cache API, swappable drivers. Pick a backend at boot — `localStorage`, `sessionStorage`, in-memory map, or any of those with encryption layered on — then call `cache.set` / `cache.get` / `cache.remove` / `cache.clear` everywhere else. TTL, key prefixing, and default-fallbacks built in. Pairs cleanly with `@mongez/atom`'s `persist` slot.
+
+## Highlighted features
+
+<div class="mongez-highlights">
+
+<div class="mongez-highlight" data-accent="ice">
+  <svg class="mongez-highlight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+  <h3>One API, five drivers</h3>
+  <p>Plain + encrypted variants for <code>localStorage</code> / <code>sessionStorage</code>, plus a runtime in-memory driver. Configure once; swap drivers without touching call sites.</p>
+</div>
+
+<div class="mongez-highlight" data-accent="ice">
+  <svg class="mongez-highlight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+  <h3>Per-entry TTL</h3>
+  <p><code>cache.set("token", value, 60 * 15)</code> — entries expire on read after their TTL. Or set a default for every key via configuration.</p>
+</div>
+
+<div class="mongez-highlight" data-accent="fire">
+  <svg class="mongez-highlight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  <h3>Encryption-at-rest</h3>
+  <p><code>EncryptedLocalStorageDriver</code> + <code>EncryptedSessionStorageDriver</code> run values through your encrypt/decrypt pair before writing. Sensitive cache values stay opaque on disk.</p>
+</div>
+
+<div class="mongez-highlight" data-accent="fire">
+  <svg class="mongez-highlight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+  <h3>Key prefixing</h3>
+  <p><code>prefix: "shop-"</code> namespaces every key so multiple apps on the same domain can't collide. Set once at config time.</p>
+</div>
+
+<div class="mongez-highlight" data-accent="bolt">
+  <svg class="mongez-highlight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M16 12l-4-4-4 4"/><line x1="12" y1="16" x2="12" y2="8"/></svg>
+  <h3>Pairs with <code>@mongez/atom</code></h3>
+  <p>Any driver satisfies <code>PersistAdapter</code> — drop it into an atom's <code>persist</code> slot and the atom hydrates from cache + writes through on update.</p>
+</div>
+
+<div class="mongez-highlight" data-accent="bolt">
+  <svg class="mongez-highlight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+  <h3>SSR-safe via <code>RunTimeDriver</code></h3>
+  <p>No Web Storage dependency. Use in tests or SSR paths where <code>localStorage</code> doesn't exist; switch back to web storage on the client.</p>
+</div>
+
+</div>
+
 ## Install
 
 ```sh
-# npm
 npm install @mongez/cache
-
-# yarn
-yarn add @mongez/cache
-
-# pnpm
-pnpm add @mongez/cache
+# or: yarn add @mongez/cache
+# or: pnpm add @mongez/cache
 ```
 
-`@mongez/encryption` is an optional peer — install it only when using the `Encrypted*` drivers.
+`@mongez/encryption` is an optional peer — install only when using the `Encrypted*` drivers.
 
-## Quick example
-
-Pick a backend at boot, then use the same `set`/`get` API everywhere — TTL, prefixing, and default-fallbacks built in:
+## Quick peek
 
 ```ts
 import cache, { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
 
 setCacheConfigurations({
   driver: new PlainLocalStorageDriver(),
-  prefix: "shop-",          // namespace every key (multi-app domains)
+  prefix: "shop-",          // namespace every key
   expiresAfter: 60 * 60,    // optional default TTL: 1 hour
 });
 
@@ -41,69 +76,31 @@ cache.set("token", "abc123", 60 * 15);   // override the default TTL
 cache.get("user");                        // { id: 1, name: "Hasan" }
 ```
 
-## When to use
+Pick a backend at boot, then use the same API everywhere.
 
-Use this skill when someone wants to understand:
+## Available drivers
 
-- What `@mongez/cache` is and what problem it solves.
-- Which storage backends (drivers) are available.
-- Whether to reach for this package instead of `window.localStorage` directly.
-- How it fits into the broader Mongez family (`@mongez/atom`, `@mongez/encryption`).
+| Driver | Persistence | Notes |
+|---|---|---|
+| `PlainLocalStorageDriver` | Cross-session | JSON-serialised; supports TTL envelope |
+| `PlainSessionStorageDriver` | Tab-lifetime | Same contract as local-storage variant |
+| `EncryptedLocalStorageDriver` | Cross-session | Encrypt/decrypt before writing |
+| `EncryptedSessionStorageDriver` | Tab-lifetime | Encrypted sessionStorage variant |
+| `RunTimeDriver` | In-memory (lost on reload) | SSR-safe; no Web Storage dependency |
 
-## How to use
+All drivers implement `CacheDriverInterface`.
 
-### What it is
+## Key pitfalls
 
-`@mongez/cache` is a framework-agnostic cache facade. It wraps `localStorage`, `sessionStorage`, and an in-memory map behind a single `cache.set / cache.get / cache.remove / cache.clear` interface. You choose a backend once at boot time; every call site stays the same regardless of which driver is active.
+- **`setCacheConfigurations` must be called before first use.** The singleton's driver is `undefined` until you call it; `cache.set(...)` before configuring throws.
+- **Web Storage drivers throw on the server** (no `localStorage` in Node). Gate driver selection with `typeof window === "undefined"` and fall back to `RunTimeDriver` for SSR paths.
+- **`RunTimeDriver` instances are not shared.** Two instances have independent stores; no global in-memory registry.
 
-### Available drivers
+## Where to go next
 
-| Driver | Module export | Persistence | Notes |
-|---|---|---|---|
-| `PlainLocalStorageDriver` | named | Cross-session (survives reload) | JSON-serialized; supports TTL envelope |
-| `PlainSessionStorageDriver` | named | Tab-lifetime only | Same contract as local-storage variant |
-| `EncryptedLocalStorageDriver` | named | Cross-session | Runs values through a configurable encrypt/decrypt pair before writing |
-| `EncryptedSessionStorageDriver` | named | Tab-lifetime | Encrypted sessionStorage variant |
-| `RunTimeDriver` | named | In-memory; lost on reload | No Web Storage dependency — safe for SSR and tests |
-
-All drivers implement `CacheDriverInterface` and can be used directly or through the `CacheManager` singleton.
-
-### When to choose @mongez/cache over raw Web Storage
-
-- You need TTL (per-entry expiry) without rolling your own timestamp envelope.
-- You want key prefixing so multiple apps on the same domain cannot collide.
-- You want to swap backends (e.g. switch to `RunTimeDriver` in tests, `EncryptedLocalStorageDriver` in production) without touching call sites.
-- You need encrypted-at-rest values without writing serialization boilerplate.
-- You are using `@mongez/atom` and want its `persist` slot backed by localStorage/sessionStorage.
-
-### Exported surface
-
-```ts
-import cache, {
-  CacheManager,
-  PlainLocalStorageDriver,
-  PlainSessionStorageDriver,
-  EncryptedLocalStorageDriver,
-  EncryptedSessionStorageDriver,
-  RunTimeDriver,
-  BaseCacheEngine,
-  setCacheConfigurations,
-  getCacheConfigurations,
-  getCacheConfig,
-} from "@mongez/cache";
-
-import type {
-  CacheDriverInterface,
-  CacheManagerInterface,
-  CacheConfigurations,
-} from "@mongez/cache";
-```
-
-`cache` (the default export) is a pre-built `CacheManager` singleton. Configure it once; import it anywhere.
-
-## Key details / Pitfalls
-
-- **`setCacheConfigurations` must be called before first use.** The singleton's driver is `undefined` until you call it. Calling `cache.set(...)` before configuring throws.
-- **Web Storage drivers throw on the server** (`localStorage` does not exist in Node). Gate driver selection with `typeof window === "undefined"` and fall back to `RunTimeDriver` for SSR paths.
-- **`RunTimeDriver` is not shared.** Two instances have independent stores. There is no global in-memory registry.
-- **Related packages**: `@mongez/atom` (state atoms with a `persist` slot), `@mongez/encryption` (CryptoJS-backed encrypt/decrypt for the encrypted drivers).
+- **[Basic usage](../basic-usage/)** — `cache.set` / `get` / `remove` / `clear`, TTL semantics
+- **[Manager](../manager/)** — `CacheManager`, custom singletons, multi-cache apps
+- **[Drivers](../drivers/)**, **[Local storage](../local-storage/)**, **[Session storage](../session-storage/)**, **[Runtime](../runtime/)** — driver internals
+- **[Custom drivers](../custom-drivers/)** — implementing `CacheDriverInterface`
+- **[Encryption](../encryption/)**, **[Encrypted cache](../encrypted-cache/)** — opaque-at-rest values
+- **[Recipes](../recipes/)** — common patterns

@@ -2,8 +2,6 @@
 name: mongez-cache-custom-drivers
 description: |
   Build custom cache backends by extending `BaseCacheEngine` — IndexedDB, cookies, remote stores — and override `convertValue` / `parseValue` or `set` / `get` when the envelope shape needs to change.
-  TRIGGER when: code declares `class X extends BaseCacheEngine` or imports `BaseCacheEngine` from `@mongez/cache`; user asks "how do I build a custom cache driver", "how do I back the cache with IndexedDB / cookies", or "how do I override the `{data, expiresAt}` envelope / serialization"; `import { BaseCacheEngine } from "@mongez/cache"`.
-  SKIP: picking among the shipped drivers — use `mongez-cache-drivers`; in-memory runtime driver — use `mongez-cache-runtime`; encrypted drivers — use `mongez-cache-encryption`; everyday `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 ---
 
 # Custom drivers

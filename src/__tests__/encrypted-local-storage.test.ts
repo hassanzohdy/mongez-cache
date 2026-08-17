@@ -148,3 +148,95 @@ describe("EncryptedLocalStorageDriver", () => {
     }
   });
 });
+
+/**
+ * A cypher that cannot be decrypted must not break the driver.
+ *
+ * localStorage is writable by every script on the origin (and by hand
+ * through DevTools / an extension), and a key rotation invalidates all
+ * existing cyphers. Before the fix, one unreadable entry made every
+ * `get()` on that key throw an uncaught error forever, because nothing
+ * removed it — a persistent, self-inflicted denial of service.
+ */
+describe("EncryptedLocalStorageDriver — poisoned cyphers", () => {
+  /** Strict decrypt: anything that is not a valid cypher throws. */
+  function strictDecrypt(cypher: string): any {
+    if (!cypher.startsWith("enc::")) {
+      throw new Error("Malformed cypher");
+    }
+
+    return JSON.parse(Buffer.from(cypher.slice(5), "base64").toString("utf8"));
+  }
+
+  let driver: EncryptedLocalStorageDriver;
+
+  beforeEach(() => {
+    setCacheConfigurations({
+      driver: new PlainLocalStorageDriver(),
+      encryption: { encrypt: fakeEncrypt, decrypt: strictDecrypt },
+    });
+    driver = new EncryptedLocalStorageDriver();
+  });
+
+  afterEach(() => {
+    driver.clear();
+  });
+
+  it("get() returns the default value instead of throwing on a tampered entry", () => {
+    driver.set("name", "Hasan");
+    localStorage.setItem("name", "tampered-not-a-cypher");
+
+    expect(() => driver.get("name")).not.toThrow();
+    expect(driver.get("name", "default")).toBe("default");
+  });
+
+  it("get() evicts the poisoned entry so later reads are clean", () => {
+    localStorage.setItem("name", "tampered-not-a-cypher");
+
+    expect(driver.get("name", "default")).toBe("default");
+    // Self-healed: the unreadable entry is gone from storage.
+    expect(localStorage.getItem("name")).toBeNull();
+    expect(driver.has("name")).toBe(false);
+  });
+
+  it("survives a cypher whose payload is not valid JSON", () => {
+    // Correct envelope prefix, garbage body — the JSON.parse inside
+    // decrypt throws.
+    localStorage.setItem("name", "enc::" + Buffer.from("{not json").toString("base64"));
+
+    expect(driver.get("name", "default")).toBe("default");
+    expect(localStorage.getItem("name")).toBeNull();
+  });
+
+  it("evicts the poisoned entry under a configured prefix", () => {
+    driver.setPrefixKey("enc-");
+    localStorage.setItem("enc-name", "tampered");
+
+    expect(driver.get("name", "default")).toBe("default");
+    expect(localStorage.getItem("enc-name")).toBeNull();
+  });
+
+  it("a poisoned entry does not affect its neighbours", () => {
+    driver.set("good", "value");
+    localStorage.setItem("bad", "tampered");
+
+    expect(driver.get("bad", "default")).toBe("default");
+    expect(driver.get("good")).toBe("value");
+  });
+
+  it("a rotated key (decrypt now throws for old cyphers) heals on read", () => {
+    driver.set("session", "token");
+    // Rotate: the new decrypt rejects everything written before.
+    setCacheConfigurations({
+      encryption: {
+        encrypt: fakeEncrypt,
+        decrypt: () => {
+          throw new Error("Wrong key");
+        },
+      },
+    });
+
+    expect(driver.get("session", null)).toBeNull();
+    expect(localStorage.getItem("session")).toBeNull();
+  });
+});

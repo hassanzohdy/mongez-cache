@@ -88,7 +88,7 @@ describe("RunTimeDriver — prefix", () => {
     driver.set("name", "Hasan");
     // The internal store carries the prefixed key, but the consumer
     // reads with the bare key.
-    expect(driver.data["rt-name"]).toBeDefined();
+    expect(driver.data.get("rt-name")).toBeDefined();
     expect(driver.get("name")).toBe("Hasan");
     driver.clear();
   });
@@ -153,5 +153,112 @@ describe("RunTimeDriver — has() on missing keys", () => {
   it("has() reports false for missing keys", () => {
     const driver = new RunTimeDriver();
     expect(driver.has("ghost")).toBe(false);
+  });
+});
+
+/**
+ * Regression tests for the prototype-chain confusion the plain-object
+ * store used to allow. The store is a `Map` now, so keys that happen to
+ * name an `Object.prototype` member are ordinary data.
+ */
+describe("RunTimeDriver — prototype-polluting keys", () => {
+  let driver: RunTimeDriver;
+
+  beforeEach(() => {
+    driver = new RunTimeDriver();
+  });
+
+  afterEach(() => {
+    driver.clear();
+  });
+
+  it("has() reports false for inherited object members", () => {
+    for (const key of [
+      "constructor",
+      "__proto__",
+      "toString",
+      "hasOwnProperty",
+      "valueOf",
+    ]) {
+      expect(driver.has(key)).toBe(false);
+    }
+  });
+
+  it("get() returns the default value for inherited object members", () => {
+    expect(driver.get("constructor", "default")).toBe("default");
+    expect(driver.get("toString", "default")).toBe("default");
+    expect(driver.get("__proto__", "default")).toBe("default");
+  });
+
+  it("set / get round-trips a `__proto__` key without touching any prototype", () => {
+    driver.set("__proto__", { polluted: true });
+
+    expect(driver.get("__proto__")).toEqual({ polluted: true });
+    expect(driver.has("__proto__")).toBe(true);
+    // Nothing leaked onto the prototypes of the store, the driver, or
+    // plain objects.
+    expect(({} as any).polluted).toBeUndefined();
+    expect((driver as any).polluted).toBeUndefined();
+    expect((driver.data as any).polluted).toBeUndefined();
+    expect(Object.getPrototypeOf(driver.data)).toBe(Map.prototype);
+  });
+
+  it("remove() actually deletes a `__proto__` key", () => {
+    driver.set("__proto__", "value");
+    driver.remove("__proto__");
+
+    expect(driver.has("__proto__")).toBe(false);
+    expect(driver.get("__proto__", "default")).toBe("default");
+  });
+
+  it("set() on `constructor` does not replace the driver's constructor", () => {
+    driver.set("constructor", "harmless");
+
+    expect(driver.get("constructor")).toBe("harmless");
+    expect(driver.constructor).toBe(RunTimeDriver);
+  });
+
+  it("clear() drops prototype-named keys too", () => {
+    driver.set("__proto__", 1);
+    driver.set("constructor", 2);
+    driver.clear();
+
+    expect(driver.has("__proto__")).toBe(false);
+    expect(driver.has("constructor")).toBe(false);
+    expect(driver.data.size).toBe(0);
+  });
+});
+
+/**
+ * `clear()` is prefix-scoped on every engine, including the runtime one.
+ */
+describe("RunTimeDriver — prefix-scoped clear()", () => {
+  it("clearing one prefix leaves another prefix's keys untouched", () => {
+    const driver = new RunTimeDriver();
+    driver.setPrefixKey("app-a-");
+    driver.set("token", "a-token");
+
+    // Same instance, second namespace — the store is shared.
+    driver.setPrefixKey("app-b-");
+    driver.set("token", "b-token");
+
+    driver.setPrefixKey("app-a-");
+    driver.clear();
+
+    expect(driver.get("token", null)).toBeNull();
+    expect(driver.data.get("app-b-token")).toBeDefined();
+
+    driver.setPrefixKey("app-b-");
+    expect(driver.get("token")).toBe("b-token");
+    driver.clear();
+  });
+
+  it("clear() without a prefix still wipes the whole store", () => {
+    const driver = new RunTimeDriver();
+    driver.set("a", 1);
+    driver.set("b", 2);
+    driver.clear();
+
+    expect(driver.data.size).toBe(0);
   });
 });

@@ -2,8 +2,6 @@
 name: mongez-cache-runtime
 description: |
   Reference for `RunTimeDriver` — the in-memory `Record<string, {value, expiresAt?}>` driver used for tests, SSR fallback, and ephemeral page-lifetime state, including its overridden `getItem` / `setItem` / `convertValue` / `parseValue` and the `has(missingKey)` semantics.
-  TRIGGER when: code calls `new RunTimeDriver()` or imports `RunTimeDriver` from `@mongez/cache`; user asks "how do I get an in-memory cache for tests", "how do I make cache SSR-safe in Node", or "how does `has()` behave for missing keys"; `import { RunTimeDriver } from "@mongez/cache"`.
-  SKIP: localStorage-backed persistence — use `mongez-cache-local-storage`; tab-scoped storage — use `mongez-cache-session-storage`; encrypted drivers — use `mongez-cache-encryption`; building a brand-new backend — use `mongez-cache-custom-drivers`.
 ---
 
 # RunTimeDriver
@@ -16,19 +14,13 @@ In-memory map. Forgets everything when the page unloads. Two instances on the sa
 import { RunTimeDriver } from "@mongez/cache";
 
 class RunTimeDriver extends BaseCacheEngine implements CacheDriverInterface {
-  public data: Record<string, { value: any; expiresAt?: number }>;
+  public data: Map<string, { value: any; expiresAt?: number }>;
 }
 ```
 
 The driver overrides `getItem` / `setItem` / `removeItem` to talk to `this.data` directly, and overrides `convertValue` / `parseValue` to no-ops since the in-memory store doesn't need JSON.
 
-## When to use it
-
-- **Tests**: deterministic, isolated, no browser globals required, no cleanup between tests.
-- **SSR fallback**: when the same code path runs on server and client, switch to the runtime driver on the server so calls don't throw.
-- **Ephemeral state**: caches that should die with the page (search-suggestion cache, derived-value memos, etc).
-
-For state that survives a reload, use [`PlainLocalStorageDriver`](./local-storage.md). For tab-scoped state that survives a refresh, use [`PlainSessionStorageDriver`](./session-storage.md).
+`data` is a `Map`, not a plain object: cache keys are caller-supplied, and on a plain object `__proto__` / `constructor` / `toString` resolve through the prototype chain instead of being treated as data. Reach into it with `data.get(key)` / `data.set(key, value)` / `data.delete(key)` — **it was a plain object before v1.4.0.**
 
 ## Usage
 

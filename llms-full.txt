@@ -440,7 +440,7 @@ This is intentionally not in the core package — the cache is meant to be small
 - **`EncryptedLocalStorageDriver.set` ignores `expiresAfter`.** Encrypted entries never expire. (`drivers/EncryptedLocalStorageDriver.ts:12`)
 - **`RunTimeDriver.has(missingKey)` returns `true`.** The base engine's `has()` checks `!== null`, runtime returns `undefined`. (`drivers/RunTimeDriver.ts:24`)
 - **`valueParer` typo** (missing `s` in `Parser`). Both the configuration field and the typo are preserved for backward compatibility. (`types.ts:67`)
-- **`clear()` wipes the entire backend, not just keys under the prefix.** Use carefully on shared domains.
+- **`clear()` removes only keys under the configured prefix** (since v1.4.0). With no prefix configured it wipes the entire backend — set a prefix when sharing an origin with other apps.
 
 See the CHANGELOG for the full list.
 

@@ -1,5 +1,20 @@
 # Changelog — @mongez/cache
 
+## [1.4.0] — 2026-08-17
+
+Security release. **`RunTimeDriver.data` changed from a plain object to a `Map`** — see Breaking below; it is a minor bump because the field is an implementation detail of the driver, but anyone who reached into it directly must change their code.
+
+### Breaking
+
+- **`RunTimeDriver.data` is now a `Map<string, any>` instead of a plain object** (`src/drivers/RunTimeDriver.ts`). This is the fix, not a refactor: cache keys are caller-controlled, and on a plain object the keys `__proto__`, `constructor` and `toString` resolve through the prototype chain. That made `has("constructor")` report `true` with nothing ever stored, `set("__proto__", value)` write to the object's prototype rather than the store, and `remove("__proto__")` a silent no-op — so a key derived from user input could shadow or corrupt cache state, and in the `__proto__` case reach `Object.prototype` itself. A `Map` has no prototype-chain lookup, so every key is plain data.
+
+  **Migration:** the public driver API (`get` / `set` / `has` / `remove` / `clear`) is unchanged. Only direct access to the field moves: `driver.data[key]` → `driver.data.get(key)`, `driver.data[key] = v` → `driver.data.set(key, v)`, `Object.keys(driver.data)` → `[...driver.data.keys()]`, `delete driver.data[key]` → `driver.data.delete(key)`. Tests that asserted on `data` as an object are the most likely callers.
+
+### Security
+
+- **`clear()` is now scoped to the engine's prefix** (`src/drivers/BaseCacheEngine.ts:190`). It called `storage.clear()`, which wipes **the entire origin's** localStorage / sessionStorage — every other app, widget or tool sharing that origin, including auth state belonging to something else entirely. A cache clearing its own entries has no business doing that. When a prefix is configured, only keys carrying it are removed; when none is configured the engine owns the whole namespace, so the historical full-wipe behaviour is kept.
+- **Tampered encrypted entries no longer surface as a decrypt throw** (`src/drivers/EncryptedLocalStorageDriver.ts:78`, inherited by `EncryptedSessionStorageDriver`). Cache values live in storage the user (or any script on the origin) can edit, so a corrupted or deliberately-modified cypher was routine and made `get()` throw from a code path callers reasonably treat as infallible — turning a poisoned cache entry into an availability problem that persisted until storage was cleared by hand. `get()` now removes the offending entry and returns the default value, so the next read repopulates cleanly.
+
 ## [1.3.4] — 2026-05-26
 
 ### Fixed

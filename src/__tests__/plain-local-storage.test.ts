@@ -232,3 +232,79 @@ describe("PlainLocalStorageDriver — value parser & converter", () => {
     driver.clear();
   });
 });
+
+/**
+ * `clear()` must stay inside the engine's own prefix namespace.
+ *
+ * localStorage is shared by every script on the origin, so a `clear()`
+ * that wipes the whole backend destroys other apps' data (auth tokens
+ * included) even though the prefix feature promises coexistence.
+ */
+describe("PlainLocalStorageDriver — prefix-scoped clear()", () => {
+  it("clearing one engine leaves another engine's prefixed keys intact", () => {
+    const appA = new PlainLocalStorageDriver().setPrefixKey("app-a-");
+    const appB = new PlainLocalStorageDriver().setPrefixKey("app-b-");
+
+    appA.set("token", "a-token");
+    appA.set("user", "a-user");
+    appB.set("token", "b-token");
+    appB.set("user", "b-user");
+
+    appA.clear();
+
+    expect(appA.get("token", null)).toBeNull();
+    expect(appA.get("user", null)).toBeNull();
+    expect(appB.get("token")).toBe("b-token");
+    expect(appB.get("user")).toBe("b-user");
+
+    appB.clear();
+  });
+
+  it("leaves unprefixed third-party keys alone", () => {
+    const driver = new PlainLocalStorageDriver().setPrefixKey("app-");
+    localStorage.setItem("someone-elses-token", "keep-me");
+    driver.set("name", "Hasan");
+
+    driver.clear();
+
+    expect(localStorage.getItem("someone-elses-token")).toBe("keep-me");
+    expect(driver.get("name", null)).toBeNull();
+    localStorage.removeItem("someone-elses-token");
+  });
+
+  it("removes every key of the prefix, however many there are", () => {
+    const driver = new PlainLocalStorageDriver().setPrefixKey("bulk-");
+
+    for (let index = 0; index < 10; index++) {
+      driver.set(`key-${index}`, index);
+    }
+
+    localStorage.setItem("outsider", "keep-me");
+    driver.clear();
+
+    for (let index = 0; index < 10; index++) {
+      expect(driver.has(`key-${index}`)).toBe(false);
+    }
+
+    // Removing while iterating a live Web Storage index would have
+    // skipped half of the keys and left the outsider count wrong.
+    expect(localStorage.length).toBe(1);
+    expect(localStorage.getItem("outsider")).toBe("keep-me");
+    localStorage.removeItem("outsider");
+  });
+
+  it("clear() without a prefix keeps wiping the whole storage", () => {
+    const driver = new PlainLocalStorageDriver();
+    localStorage.setItem("someone-elses-token", "bye");
+    driver.set("name", "Hasan");
+
+    driver.clear();
+
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("clear() returns the driver for chaining", () => {
+    const driver = new PlainLocalStorageDriver().setPrefixKey("chain-");
+    expect(driver.clear()).toBe(driver);
+  });
+});

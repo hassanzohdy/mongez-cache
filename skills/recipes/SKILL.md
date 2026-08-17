@@ -2,8 +2,6 @@
 name: mongez-cache-recipes
 description: |
   Idiomatic composition recipes — boot-time `setCacheConfigurations`, multi-app prefix namespacing, short-TTL caches for derived data, encrypted-token storage, sibling `CacheManager` instances, SSR fallback to `RunTimeDriver`, persisting `@mongez/atom` via a `cacheAdapter`, mixing plain + encrypted adapters per atom, and wrapping the cache to emit write events.
-  TRIGGER when: user asks "show me an end-to-end `@mongez/cache` example", "how do I persist `@mongez/atom` atoms with `@mongez/cache`", "how do I namespace multiple apps on one domain", "how do I subscribe to cache writes", or "how do I do SSR with `@mongez/cache`"; pull-in pattern: `import { createAtom } from "@mongez/atom"` alongside `import cache from "@mongez/cache"`.
-  SKIP: bare API surface of a single function or driver — use `mongez-cache-basic-usage`, `mongez-cache-manager`, or the per-driver skills; building a brand-new driver — use `mongez-cache-custom-drivers`; first-time discovery of the package — use `mongez-cache-overview`.
 ---
 
 # Recipes

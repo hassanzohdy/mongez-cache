@@ -41,37 +41,44 @@ export default class EncryptedLocalStorageDriver
    * expiry. For backward compatibility with legacy cyphers that were
    * written before the envelope was introduced (no `data` / `expiresAt`
    * keys), the decrypted value is returned as-is with no expiration.
+   *
+   * A cypher that fails to decrypt (tampered entry, rotated key,
+   * truncated write) must not make every subsequent read throw, so the
+   * poisoned entry is evicted and the default value is returned —
+   * the same self-healing behavior `BaseCacheEngine.get()` implements.
    */
   public get(key: string, defaultValue: any = null) {
     let value = this.storage.getItem(this.getKey(key));
 
     if (!value) return defaultValue;
 
-    const decrypted = getCacheConfig("encryption")?.decrypt(value);
+    try {
+      const decrypted = getCacheConfig("encryption")?.decrypt(value);
 
-    // Legacy format detection: pre-envelope cyphers decrypt to
-    // arbitrary user data (string / number / object without
-    // `data` + `expiresAt` keys). Treat those as immortal entries.
-    if (
-      decrypted === null ||
-      decrypted === undefined ||
-      typeof decrypted !== "object" ||
-      !("data" in decrypted)
-    ) {
-      return decrypted === null || decrypted === undefined
-        ? defaultValue
-        : decrypted;
-    }
+      // Legacy format detection: pre-envelope cyphers decrypt to
+      // arbitrary user data (string / number / object without
+      // `data` + `expiresAt` keys). Treat those as immortal entries.
+      if (
+        decrypted === null ||
+        decrypted === undefined ||
+        typeof decrypted !== "object" ||
+        !("data" in decrypted)
+      ) {
+        return decrypted === null || decrypted === undefined
+          ? defaultValue
+          : decrypted;
+      }
 
-    if (
-      decrypted.expiresAt &&
-      decrypted.expiresAt < new Date().getTime()
-    ) {
+      if (decrypted.expiresAt && decrypted.expiresAt < new Date().getTime()) {
+        this.remove(key);
+        return defaultValue;
+      }
+
+      return decrypted.data;
+    } catch (error) {
       this.remove(key);
       return defaultValue;
     }
-
-    return decrypted.data;
   }
 
   /**

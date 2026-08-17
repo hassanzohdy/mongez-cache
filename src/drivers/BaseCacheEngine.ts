@@ -146,10 +146,62 @@ export default class BaseCacheEngine implements CacheDriverInterface {
   }
 
   /**
+   * List the keys currently held by the storage engine
+   *
+   * The returned array is a snapshot: Web Storage re-indexes itself on
+   * every removal, so iterating `storage.length` while removing entries
+   * silently skips keys.
+   */
+  protected storageKeys(): string[] {
+    const storage = this.storage;
+
+    if (!storage) return [];
+
+    // Web Storage exposes an ordered `length` + `key(index)` pair.
+    if (
+      typeof storage.key === "function" &&
+      typeof storage.length === "number"
+    ) {
+      const keys: string[] = [];
+
+      for (let index = 0; index < storage.length; index++) {
+        const key = storage.key(index);
+
+        if (key !== null) keys.push(key);
+      }
+
+      return keys;
+    }
+
+    return Object.keys(storage);
+  }
+
+  /**
    * Clear the cache storage
+   *
+   * Only the keys owned by this engine's prefix are removed, so several
+   * apps sharing the same origin (and therefore the same localStorage /
+   * sessionStorage) can clear their own namespace without destroying
+   * each other's data.
+   *
+   * When no prefix is configured the engine owns the whole namespace,
+   * so the historical behavior is kept and the entire storage is wiped.
    */
   public clear() {
-    this.storage.clear();
+    const prefix = this.getPrefixKey();
+
+    if (!prefix) {
+      this.storage.clear();
+
+      return this;
+    }
+
+    for (const key of this.storageKeys()) {
+      if (key.startsWith(prefix)) {
+        this.storage.removeItem(key);
+      }
+    }
+
     return this;
   }
 }

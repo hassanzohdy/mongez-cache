@@ -2,8 +2,6 @@
 name: mongez-cache-manager
 description: |
   Reference for the `CacheManager` facade, the default `cache` singleton, and config helpers — `setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`, `setDriver` / `getDriver`, `setPrefixKey`, plus building sibling managers with distinct prefixes / backends.
-  TRIGGER when: code imports `cache` (default), `CacheManager`, `setCacheConfigurations`, `getCacheConfigurations`, or `getCacheConfig` from `@mongez/cache`; user asks "how do I bootstrap `@mongez/cache`", "how do I hot-swap the driver", or "how do I have two cache managers side by side"; `import cache, { CacheManager } from "@mongez/cache"`.
-  SKIP: per-driver options (`PlainLocalStorageDriver` etc.) — use `mongez-cache-drivers`; daily `cache.set` / `cache.get` / `cache.has` calls — use `mongez-cache-basic-usage`; encrypted setup — use `mongez-cache-encryption` / `mongez-cache-encrypted-cache`; building a custom backend — use `mongez-cache-custom-drivers`.
 ---
 
 # Cache manager
@@ -29,7 +27,7 @@ interface CacheManagerInterface extends CacheDriverInterface {
 | `cache.get(key, defaultValue?)` | Read a value. Returns the default (or `null` from the facade, `undefined` from a driver directly) when the key is missing. |
 | `cache.has(key)` | `true` when the raw storage entry exists. Does **not** check expiry — use `get(key) !== null` for that. |
 | `cache.remove(key)` | Delete a single entry. Returns the manager. |
-| `cache.clear()` | Wipe the entire backing storage. **Not prefix-scoped** — `localStorage.clear()` resets every key in the origin. |
+| `cache.clear()` | Wipe the cache. **Prefix-scoped since v1.4.0** — only keys carrying the configured prefix are removed. With no prefix configured, the whole backing storage is wiped. |
 | `cache.setPrefixKey(p)` / `cache.getPrefixKey()` | Namespace control. |
 | `cache.setValueConverter(fn)` / `cache.setValueParser(fn)` | Override the default `JSON.stringify` / `JSON.parse` per driver. |
 | `cache.setDriver(driver)` / `cache.getDriver()` | Hot-swap the underlying backend at runtime. |
@@ -131,6 +129,6 @@ Prefixes are not enforced — overlapping prefixes share storage. Pick a stable 
 
 ## Gotchas
 
-- **`cache.clear()` is global to the backend.** `localStorage.clear()` wipes everything in the origin, not just the keys under your prefix. If multiple apps share a domain, use `cache.remove(key)` for owned keys instead.
+- **`cache.clear()` is scoped to your prefix** (since v1.4.0). Only keys starting with the configured prefix are removed, so apps sharing an origin don't wipe each other's data. **With no prefix configured it still clears the whole backend** — set a prefix if you share a domain.
 - **`get` returns `null` from the manager, `undefined` from a driver directly.** The facade defaults to `null` (`get(key, defaultValue = null)`); drivers default to `undefined`. Specify your own default when you care.
 - **The configuration singleton is module-level.** Tests that mutate it bleed into each other unless you re-apply a known baseline in `beforeEach`.
