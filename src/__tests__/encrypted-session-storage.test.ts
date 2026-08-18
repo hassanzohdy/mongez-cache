@@ -11,11 +11,11 @@ import { setCacheConfigurations } from "../config";
 import EncryptedSessionStorageDriver from "../drivers/EncryptedSessionStorageDriver";
 import PlainSessionStorageDriver from "../drivers/PlainSessionStorageDriver";
 
-function fakeEncrypt(value: any): string {
+async function fakeEncrypt(value: any): Promise<string> {
   return "enc::" + Buffer.from(JSON.stringify(value)).toString("base64");
 }
 
-function fakeDecrypt(cypher: string): any {
+async function fakeDecrypt(cypher: string): Promise<any> {
   if (typeof cypher !== "string" || !cypher.startsWith("enc::")) return null;
   return JSON.parse(Buffer.from(cypher.slice(5), "base64").toString("utf8"));
 }
@@ -35,18 +35,18 @@ describe("EncryptedSessionStorageDriver", () => {
     driver = new EncryptedSessionStorageDriver();
   });
 
-  afterEach(() => {
-    driver.clear();
+  afterEach(async () => {
+    await driver.clear();
   });
 
-  it("writes to sessionStorage, not localStorage", () => {
-    driver.set("name", "Hasan");
+  it("writes to sessionStorage, not localStorage", async () => {
+    await driver.set("name", "Hasan");
     expect(sessionStorage.getItem("name")).not.toBeNull();
     expect(localStorage.getItem("name")).toBeNull();
   });
 
-  it("set / get round-trips with the configured encrypt / decrypt", () => {
-    driver.set("user", { id: 1, name: "Hasan" });
+  it("set / get round-trips with the configured async encrypt / decrypt", async () => {
+    await driver.set("user", { id: 1, name: "Hasan" });
     // The driver wraps the value in a `{data, expiresAt}` envelope
     // before encrypting so that TTL works the same way as in the
     // plain drivers.
@@ -54,25 +54,25 @@ describe("EncryptedSessionStorageDriver", () => {
       data: { id: 1, name: "Hasan" },
       expiresAt: undefined,
     });
-    expect(driver.get("user")).toEqual({ id: 1, name: "Hasan" });
+    expect(await driver.get("user")).toEqual({ id: 1, name: "Hasan" });
     expect(decrypt).toHaveBeenCalledTimes(1);
   });
 
-  it("stores the cypher on disk, not the plain value", () => {
-    driver.set("name", "Hasan");
+  it("stores the cypher on disk, not the plain value", async () => {
+    await driver.set("name", "Hasan");
     expect(sessionStorage.getItem("name")).toMatch(/^enc::/);
   });
 
-  it("remove() drops the key", () => {
-    driver.set("name", "Hasan");
-    driver.remove("name");
-    expect(driver.has("name")).toBe(false);
+  it("remove() drops the key", async () => {
+    await driver.set("name", "Hasan");
+    await driver.remove("name");
+    expect(await driver.has("name")).toBe(false);
   });
 
-  it("respects a configured prefix", () => {
+  it("respects a configured prefix", async () => {
     driver.setPrefixKey("sess-");
-    driver.set("name", "Hasan");
+    await driver.set("name", "Hasan");
     expect(sessionStorage.getItem("sess-name")).not.toBeNull();
-    expect(driver.get("name")).toBe("Hasan");
+    expect(await driver.get("name")).toBe("Hasan");
   });
 });

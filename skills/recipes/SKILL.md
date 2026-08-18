@@ -1,12 +1,12 @@
 ---
 name: mongez-cache-recipes
 description: |
-  Idiomatic composition recipes — boot-time `setCacheConfigurations`, multi-app prefix namespacing, short-TTL caches for derived data, encrypted-token storage, sibling `CacheManager` instances, SSR fallback to `RunTimeDriver`, persisting `@mongez/atom` via a `cacheAdapter`, mixing plain + encrypted adapters per atom, and wrapping the cache to emit write events.
+  Idiomatic composition recipes — boot-time `setCacheConfigurations`, multi-app prefix namespacing, short-TTL caches for derived data, encrypted-token storage, opt-in IndexedDB for structured/large values, sibling `CacheManager` instances, SSR fallback to `RunTimeDriver`, persisting `@mongez/atom` via a `cacheAdapter`, mixing plain + encrypted adapters per atom, and wrapping the cache to emit write events. Every call site awaits the cache methods.
 ---
 
 # Recipes
 
-Idiomatic compositions across `@mongez/cache` features and across the Mongez family.
+Idiomatic compositions across `@mongez/cache` features and across the Mongez family. Every `cache.*` call returns a `Promise` as of 2.0.0.
 
 ## Bootstrap once at app entry
 
@@ -29,8 +29,8 @@ Then everywhere else:
 ```ts
 import cache from "@mongez/cache";
 
-cache.set("user", payload);
-cache.get("user");
+await cache.set("user", payload);
+await cache.get("user");
 ```
 
 ## Multi-app namespacing on the same domain
@@ -55,11 +55,11 @@ Each app sees its own `user`, `token`, `prefs.theme`, etc. without leaking into 
 
 ```ts
 async function getProductRecommendations(productId: string) {
-  const cached = cache.get(`recs.${productId}`);
+  const cached = await cache.get(`recs.${productId}`);
   if (cached) return cached;
 
   const recs = await api.recommendations(productId);
-  cache.set(`recs.${productId}`, recs, 60 * 15);   // 15 minutes
+  await cache.set(`recs.${productId}`, recs, 60 * 15);   // 15 minutes
   return recs;
 }
 ```
@@ -82,11 +82,28 @@ setCacheConfigurations({
   encryption: { encrypt, decrypt },
 });
 
-cache.set("auth.accessToken", token);
-cache.set("auth.refreshToken", refreshToken);
+await cache.set("auth.accessToken", token);
+await cache.set("auth.refreshToken", refreshToken);
 ```
 
-On disk the values are AES cyphers, not plaintext. Readable only with the configured key.
+On disk the values are AES-GCM cyphers, not plaintext. Readable only with the configured key.
+
+## Structured or large values via IndexedDB (opt-in)
+
+Reach for `IndexedDBDriver` when a value needs to survive as a real `Date` / `Map` / `Set`, or is too big for Web Storage's ~5MB quota:
+
+```ts
+import cache, { IndexedDBDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({ driver: new IndexedDBDriver() });
+
+await cache.set("report.rows", hugeRowArray);
+await cache.set("report.generatedAt", new Date());
+
+const generatedAt = await cache.get("report.generatedAt"); // a real Date instance
+```
+
+Combine with encryption for large sensitive payloads via `EncryptedIndexedDBDriver` — see the `indexeddb` and `encrypted-cache` skills.
 
 ## Sibling stores — long-lived prefs + ephemeral session
 
@@ -107,8 +124,8 @@ session
   .setDriver(new PlainSessionStorageDriver())
   .setPrefixKey("session-");
 
-prefs.set("theme", "dark");              // localStorage
-session.set("scroll.y", 312);             // sessionStorage
+await prefs.set("theme", "dark");         // localStorage
+await session.set("scroll.y", 312);        // sessionStorage
 ```
 
 Two managers, two prefixes, two backends — explicit at every call site.
@@ -133,7 +150,7 @@ Same call sites work on server and client. The server sees an empty in-memory ca
 
 ## Persisting an atom via `@mongez/cache`
 
-`@mongez/atom`'s `persist` slot accepts any `PersistAdapter<V>`. The cache's API matches by name; a thin wrapper normalizes return values:
+`@mongez/atom`'s `persist` slot accepts an async `PersistAdapter<V>`, which is exactly the cache's `{ get, set, remove }` shape:
 
 ```ts
 // adapters/cacheAdapter.ts
@@ -141,12 +158,8 @@ import cache from "@mongez/cache";
 
 export const cacheAdapter = {
   get: (key: string) => cache.get(key),
-  set: (key: string, value: unknown) => {
-    cache.set(key, value);
-  },
-  remove: (key: string) => {
-    cache.remove(key);
-  },
+  set: (key: string, value: unknown) => cache.set(key, value),
+  remove: (key: string) => cache.remove(key),
 };
 ```
 
@@ -169,12 +182,7 @@ const userAtom = createAtom({
 });
 ```
 
-Every `themeAtom.update("dark")` writes through to the configured backend; every page load reads back from it.
-
-The wrapper exists so:
-
-1. `set` and `remove` return `void` instead of the driver instance. Atom doesn't care about the chain.
-2. The wrapper sits in one place — if you swap from localStorage to encrypted localStorage to IndexedDB, every atom upgrades at once.
+Every `themeAtom.update("dark")` writes through to the configured backend; every page load reads back from it. Swap the cache's driver from plain to encrypted to IndexedDB, and every atom using this adapter upgrades at once with zero call-site changes.
 
 ## Per-atom backend (mixing persistence strategies)
 
@@ -195,14 +203,14 @@ encrypted.setDriver(new EncryptedLocalStorageDriver()).setPrefixKey("secure-");
 
 export const plainAdapter = {
   get: (k: string) => plain.get(k),
-  set: (k: string, v: unknown) => { plain.set(k, v); },
-  remove: (k: string) => { plain.remove(k); },
+  set: (k: string, v: unknown) => plain.set(k, v),
+  remove: (k: string) => plain.remove(k),
 };
 
 export const encryptedAdapter = {
   get: (k: string) => encrypted.get(k),
-  set: (k: string, v: unknown) => { encrypted.set(k, v); },
-  remove: (k: string) => { encrypted.remove(k); },
+  set: (k: string, v: unknown) => encrypted.set(k, v),
+  remove: (k: string) => encrypted.remove(k),
 };
 
 // atoms/preferences.ts
@@ -231,13 +239,13 @@ import events from "@mongez/events";
 import cache from "@mongez/cache";
 
 export const observableCache = {
-  set(key: string, value: unknown, expiresAfter?: number) {
-    cache.set(key, value, expiresAfter);
+  async set(key: string, value: unknown, expiresAfter?: number) {
+    await cache.set(key, value, expiresAfter);
     events.trigger("cache.set", { key, value });
   },
   get: cache.get.bind(cache),
-  remove(key: string) {
-    cache.remove(key);
+  async remove(key: string) {
+    await cache.remove(key);
     events.trigger("cache.remove", { key });
   },
   on: events.on.bind(events),
@@ -249,3 +257,19 @@ observableCache.on("cache.set", ({ key, value }) => {
 ```
 
 Or — usually simpler — route the same data through a `@mongez/atom` atom with a `persist` adapter and subscribe to the atom instead.
+
+## Snapshotting the whole cache with `getAll()`
+
+Useful for a debug panel, a "download my data" export, or seeding a second store:
+
+```ts
+const snapshot = await cache.getAll(); // { key: value, ... } — every live entry
+
+// Re-hydrate into a different driver:
+const target = new CacheManager();
+target.setDriver(new RunTimeDriver());
+
+for (const [key, value] of Object.entries(snapshot)) {
+  await target.set(key, value);
+}
+```

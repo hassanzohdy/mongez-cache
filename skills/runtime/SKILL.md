@@ -1,12 +1,12 @@
 ---
 name: mongez-cache-runtime
 description: |
-  Reference for `RunTimeDriver` — the in-memory `Record<string, {value, expiresAt?}>` driver used for tests, SSR fallback, and ephemeral page-lifetime state, including its overridden `getItem` / `setItem` / `convertValue` / `parseValue` and the `has(missingKey)` semantics.
+  Reference for `RunTimeDriver` — the async in-memory `Map<string, {value, expiresAt?}>` driver used for tests, SSR fallback, and ephemeral page-lifetime state, including its overridden `getItem` / `setItem` / `convertValue` / `parseValue` and the `has(missingKey)` semantics.
 ---
 
 # RunTimeDriver
 
-In-memory map. Forgets everything when the page unloads. Two instances on the same page have independent stores.
+In-memory map. Forgets everything when the page unloads. Two instances on the same page have independent stores. Backed by a synchronous `Map` under the hood, but every public method still returns a `Promise` to satisfy the shared `CacheDriverInterface`.
 
 ## Signature
 
@@ -25,14 +25,14 @@ The driver overrides `getItem` / `setItem` / `removeItem` to talk to `this.data`
 ## Usage
 
 ```ts
-import { RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
+import cache, { RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
 
 setCacheConfigurations({
   driver: new RunTimeDriver(),
 });
 
-cache.set("name", "Hasan");
-cache.get("name");                  // "Hasan"
+await cache.set("name", "Hasan");
+await cache.get("name");                  // "Hasan"
 // Reload — gone.
 ```
 
@@ -41,20 +41,20 @@ Or two managers, two stores:
 ```ts
 const a = new RunTimeDriver();
 const b = new RunTimeDriver();
-a.set("name", "from-a");
-b.set("name", "from-b");
-a.get("name");                      // "from-a"
-b.get("name");                      // "from-b"
+await a.set("name", "from-a");
+await b.set("name", "from-b");
+await a.get("name");                      // "from-a"
+await b.get("name");                      // "from-b"
 ```
 
 ## TTL
 
-Works the same as the storage-backed drivers — `cache.set(key, value, expiresAfterSeconds)`. A read past the window returns the default and drops the entry.
+Works the same as the storage-backed drivers — `await cache.set(key, value, expiresAfterSeconds)`. A read past the window returns the default and drops the entry.
 
 ```ts
-cache.set("ttl.test", "abc", 60);
+await cache.set("ttl.test", "abc", 60);
 // ... 61 seconds later ...
-cache.get("ttl.test", null);        // null — entry has been removed
+await cache.get("ttl.test", null);        // null — entry has been removed
 ```
 
 ## SSR
@@ -73,4 +73,4 @@ Server-rendered pages see an empty runtime cache (each request creates fresh sta
 
 ## `has()` semantics
 
-`has(missingKey)` returns `false`. `RunTimeDriver.getItem` returns `null` (not `undefined`) for misses, matching the Web Storage API contract that `BaseCacheEngine.has()` relies on (`getItem(...) !== null`). Coverage lives at `src/__tests__/runtime-driver.test.ts`.
+`has(missingKey)` resolves to `false`. `RunTimeDriver.getItem` returns `null` (not `undefined`) for misses, matching the Web Storage API contract that `BaseCacheEngine.has()` relies on (`getItem(...) !== null`), and `has()` performs the same expiry check as `get()` so the two agree on a live-vs-expired entry. Coverage lives at `src/__tests__/runtime-driver.test.ts`.

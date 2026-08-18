@@ -1,5 +1,14 @@
 import { CacheDriverInterface, CacheManagerInterface } from "./types";
 
+/**
+ * The cache facade.
+ *
+ * Every storage-touching method forwards to the active driver and
+ * returns the driver's promise, so swapping localStorage for IndexedDB
+ * (or for a driver of your own that talks to a remote store) does not
+ * change a single call site. Driver configuration — prefix, value
+ * parser, value converter — stays synchronous and chainable.
+ */
 export class CacheManager implements CacheManagerInterface {
   /**
    * Cache Driver Engine
@@ -24,8 +33,8 @@ export class CacheManager implements CacheManagerInterface {
   /**
    * Set cache into storage
    */
-  public set(key: string, value: any, expiresAfter?: number) {
-    this.driver.set(key, value, expiresAfter);
+  public async set(key: string, value: any, expiresAfter?: number) {
+    await this.driver.set(key, value, expiresAfter);
     return this as any;
   }
 
@@ -46,9 +55,23 @@ export class CacheManager implements CacheManagerInterface {
   /**
    * Remove the given key from the cache storage
    */
-  public remove(key: string) {
-    this.driver.remove(key);
+  public async remove(key: string) {
+    await this.driver.remove(key);
     return this as any;
+  }
+
+  /**
+   * List the caller-facing keys owned by the active driver
+   */
+  public keys(): Promise<string[]> {
+    return this.driver.keys();
+  }
+
+  /**
+   * Read every live entry owned by the active driver
+   */
+  public getAll(): Promise<Record<string, any>> {
+    return this.driver.getAll();
   }
 
   /**
@@ -87,8 +110,8 @@ export class CacheManager implements CacheManagerInterface {
   /**
    * Clear the cache storage
    */
-  public clear() {
-    this.driver.clear();
+  public async clear() {
+    await this.driver.clear();
 
     return this;
   }

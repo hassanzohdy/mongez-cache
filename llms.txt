@@ -1,56 +1,58 @@
 # @mongez/cache
 
-> A framework-agnostic cache facade with pluggable drivers — localStorage, sessionStorage, in-memory, and encrypted variants. One API, key prefixing, per-entry TTL, and a shape that drops into `@mongez/atom`'s `persist` slot.
+> A framework-agnostic **async** cache facade with pluggable drivers — localStorage, sessionStorage, opt-in IndexedDB, in-memory, and encrypted variants. One API, key prefixing, per-entry TTL, bulk reads (`getAll`), and a shape that drops into `@mongez/atom`'s `persist` slot. Requires **Node >=20**.
 
-This is the storage layer of the Mongez family. The state primitive lives in [`@mongez/atom`](https://github.com/hassanzohdy/atom); the encrypt/decrypt pair for the encrypted drivers lives in [`@mongez/encryption`](https://github.com/hassanzohdy/mongez-encryption).
+This is the storage layer of the Mongez family. The state primitive lives in [`@mongez/atom`](https://github.com/hassanzohdy/atom); the encrypt/decrypt pair for the encrypted drivers lives in [`@mongez/encryption`](https://github.com/hassanzohdy/mongez-encryption) (`^2.0.0`, async WebCrypto AES-256-GCM).
 
 Every export ships from the package root.
 
 ## Docs
 
-- [Overview](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/overview.md): Pitch, install, mental model.
+- [Overview](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/overview/SKILL.md): Pitch, install, mental model.
   - *Auto-trigger:* first-time use of `@mongez/cache`, or user asks what the package is, which drivers ship, and when to choose it over raw Web Storage.
 - [README](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/README.md): Marketing-style index.
-- [Changelog](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/CHANGELOG.md): Release notes and documented bugs.
+- [Changelog](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/CHANGELOG.md): Release notes and documented bugs — see `[2.0.0]` for the async rewrite.
 
 ## Reference (by area)
 
-- [Cache manager](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/manager.md): `cache` (default singleton), `CacheManager`, configuration (`setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`), prefix, TTL.
-  - *Auto-trigger:* code bootstraps the cache, hot-swaps the driver, or constructs sibling `CacheManager` instances with different prefixes / backends.
-- [Local storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/local-storage.md): `PlainLocalStorageDriver`. localStorage-backed JSON cache.
+- [Cache manager](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/manager/SKILL.md): `cache` (default singleton), `CacheManager`, configuration (`setCacheConfigurations`, `getCacheConfigurations`, `getCacheConfig`), prefix, TTL, `keys()` / `getAll()`.
+  - *Auto-trigger:* code bootstraps the cache, hot-swaps the driver, constructs sibling `CacheManager` instances with different prefixes / backends, or reads back every entry with `getAll()`.
+- [Basic usage](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/basic-usage/SKILL.md): `cache.set` / `get` / `has` / `remove` / `clear` / `keys` / `getAll`, all async.
+- [Local storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/local-storage/SKILL.md): `PlainLocalStorageDriver`. localStorage-backed JSON cache.
   - *Auto-trigger:* code uses `PlainLocalStorageDriver`, or user asks about persistent cross-reload browser caching, the on-disk envelope, or localStorage quota and SSR caveats.
-- [Session storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/session-storage.md): `PlainSessionStorageDriver`. Same contract, sessionStorage backend.
+- [Session storage driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/session-storage/SKILL.md): `PlainSessionStorageDriver`. Same contract, sessionStorage backend.
   - *Auto-trigger:* code uses `PlainSessionStorageDriver`, or user wants tab-scoped state (scroll position, drafts, wizard progress) that survives refresh but not tab close.
-- [Runtime driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/runtime.md): `RunTimeDriver`. In-memory map for tests, SSR fallback, ephemeral state.
-  - *Auto-trigger:* code uses `RunTimeDriver`, or user asks about in-memory cache for tests, SSR fallback in Node, or the known `has(missingKey)` bug.
-- [Encryption](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/encryption.md): `EncryptedLocalStorageDriver`, `EncryptedSessionStorageDriver`, encrypt/decrypt configuration.
-  - *Auto-trigger:* code uses `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver`, or user asks how to encrypt cached tokens / PII or rotate encryption keys.
-- [Custom drivers](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/custom-drivers.md): Extending `BaseCacheEngine` with IndexedDB, cookies, or remote backends.
-  - *Auto-trigger:* code extends `BaseCacheEngine`, or user asks how to back the cache with IndexedDB / cookies or override the envelope / serialization.
+- [Runtime driver](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/runtime/SKILL.md): `RunTimeDriver`. In-memory `Map` for tests, SSR fallback, ephemeral state.
+  - *Auto-trigger:* code uses `RunTimeDriver`, or user asks about in-memory cache for tests or SSR fallback in Node.
+- [IndexedDB drivers (opt-in)](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/indexeddb/SKILL.md): `IndexedDBDriver`, `EncryptedIndexedDBDriver`. Structured-clone storage beyond Web Storage's quota — never the default.
+  - *Auto-trigger:* code uses `IndexedDBDriver` / `EncryptedIndexedDBDriver`, or user asks about IndexedDB caching, storing `Date`/`Map`/`Set` values, exceeding the localStorage quota, or the `CacheQuotaExceededError` / `IndexedDBUnavailableError` / `IndexedDBBlockedError` errors.
+- [Encryption](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/encryption/SKILL.md): `EncryptedLocalStorageDriver`, `EncryptedSessionStorageDriver`, `EncryptedIndexedDBDriver`, encrypt/decrypt configuration.
+  - *Auto-trigger:* code uses any `Encrypted*` driver, or user asks how to encrypt cached tokens / PII or rotate encryption keys.
+- [Custom drivers](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/custom-drivers/SKILL.md): Extending `BaseCacheEngine` (or implementing `CacheDriverInterface` directly) for cookies or remote backends.
+  - *Auto-trigger:* code extends `BaseCacheEngine`, or user asks how to back the cache with cookies / a remote store or override the envelope / serialization.
 
 ## Recipes
 
-- [Recipes](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/recipes.md): Multi-app prefixing, TTL per call vs. global, encrypted tokens, atom persistence wiring, SSR fallback to runtime driver.
-  - *Auto-trigger:* user wants end-to-end examples — persisting `@mongez/atom` atoms, multi-app prefixing, SSR fallback, encrypted tokens, or write subscriptions.
+- [Recipes](https://raw.githubusercontent.com/hassanzohdy/mongez-cache/main/skills/recipes/SKILL.md): Multi-app prefixing, TTL per call vs. global, encrypted tokens, opt-in IndexedDB for structured/large values, atom persistence wiring, SSR fallback to runtime driver, `getAll()` snapshots.
+  - *Auto-trigger:* user wants end-to-end examples — persisting `@mongez/atom` atoms, multi-app prefixing, SSR fallback, encrypted tokens, IndexedDB, or write subscriptions.
 
 ## Quick rules
 
 1. **Flat imports**: `import cache, { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache"`. No subpath entry points.
-2. **One bootstrap call**: invoke `setCacheConfigurations({ driver })` once at boot, then import the default `cache` everywhere.
-3. **Drivers are interchangeable**: every driver implements the same `CacheDriverInterface`. Swap at boot without touching call sites.
-4. **Values are JSON-serialized by default**: objects and arrays survive round-trips. Override `valueConverter` / `valueParer` for non-JSON shapes.
-5. **TTL is in seconds**: `cache.set(key, value, 60 * 15)` = 15 minutes. Set a global default via `expiresAfter` in configuration.
-6. **`prefix` namespaces every key**: required when sharing a domain with other apps; the on-disk key becomes `${prefix}${key}`.
-7. **Encrypted drivers need explicit encrypt/decrypt pair**: configure via `setCacheConfigurations({ encryption: { encrypt, decrypt } })`. Drivers throw if the pair is missing on first write.
+2. **Every storage-touching call is async**: `await cache.set/get/has/remove/clear/keys/getAll` — required on every driver, including the ones that run synchronously under the hood.
+3. **One bootstrap call**: invoke `setCacheConfigurations({ driver })` once at boot, then import the default `cache` everywhere.
+4. **Drivers are interchangeable**: every driver implements the same async `CacheDriverInterface`. Swap at boot without touching call sites.
+5. **Values are JSON-serialized by default**: objects and arrays survive round-trips on the Web Storage / runtime drivers. `IndexedDBDriver` uses structured clone instead (no JSON pass) — `Date`, `Map`, `Set`, `ArrayBuffer` survive untouched.
+6. **TTL is in seconds**: `await cache.set(key, value, 60 * 15)` = 15 minutes. Set a global default via `expiresAfter` in configuration.
+7. **`prefix` namespaces every key**: required when sharing a domain with other apps; the on-disk key becomes `${prefix}${key}`. `clear()` is scoped to the configured prefix.
+8. **Encrypted drivers need explicit encrypt/decrypt pair**: configure via `setCacheConfigurations({ encryption: { encrypt, decrypt } })`. Drivers throw if the pair is missing on first write. The pair may be sync or async.
+9. **IndexedDB is opt-in, never the default**: nothing constructs `IndexedDBDriver` / `EncryptedIndexedDBDriver` for you — pass one explicitly via `setCacheConfigurations({ driver: new IndexedDBDriver() })`.
+10. **`getAll()` / `keys()` are safe against prototype pollution**: forbidden keys (`__proto__`, `constructor`, `prototype`) round-trip as inert data instead of reaching a prototype setter.
+11. **Requires Node >=20** for the build/test toolchain (the package itself runs in any browser).
 
-## Two documented bugs
+## Migrating from 1.x
 
-These are tested but skipped in `src/__tests__/`:
-
-1. `EncryptedLocalStorageDriver.set` ignores `expiresAfter` — encrypted entries never expire (`drivers/EncryptedLocalStorageDriver.ts:12`).
-2. `RunTimeDriver.has(missingKey)` returns `true` — base engine uses `!== null`, runtime returns `undefined` (`drivers/RunTimeDriver.ts:24`).
-
-See the changelog for the full list.
+The whole driver contract became async in 2.0.0 — see `CHANGELOG.md`'s `[2.0.0]` entry for the complete, dated list. Short version: `await` every `cache.*` call, `@mongez/encryption` bumps to `^2.0.0`, and IndexedDB is additive/opt-in (no behavior change for existing localStorage/sessionStorage/runtime consumers beyond the `await`s).
 
 ## Optional
 

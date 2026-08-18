@@ -27,6 +27,8 @@ export function getCacheConfigurations() {
   return configuration;
 }
 
-export function getCacheConfig(key: keyof CacheConfigurations) {
+export function getCacheConfig<Key extends keyof CacheConfigurations>(
+  key: Key
+): CacheConfigurations[Key] | undefined {
   return configuration[key];
 }

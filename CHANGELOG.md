@@ -1,5 +1,43 @@
 # Changelog — @mongez/cache
 
+## [2.0.0] — 2026-08-18
+
+Major release. **Every driver method that touches storage is now async** — see Breaking below. Adds two new, opt-in IndexedDB-backed drivers.
+
+### Breaking
+
+- **The driver contract is now async.** `CacheDriverInterface.set/get/has/remove/clear` (and the new `keys`/`getAll`, see Added) all return a `Promise` — `CacheManager`'s facade methods do too. Web Storage and `RunTimeDriver` still do their work synchronously under the hood and simply resolve immediately, so a single `await` (or `.then`) at each call site is the whole migration for those backends:
+
+  ```diff
+  - const value = cache.get("name");
+  + const value = await cache.get("name");
+  ```
+
+  `has()` on the plain drivers also now agrees with `get()` on expiry — it evicts an expired entry and reports `false` instead of reporting `true` and letting the next `get()` silently make it disappear.
+- **`@mongez/encryption` bumped to `^2.0.0`.** Its `encrypt`/`decrypt` moved to WebCrypto AES-256-GCM and are now async (a sync `1.x` pair still works — the drivers `await` whatever is returned). `EncryptedLocalStorageDriver`/`EncryptedSessionStorageDriver` `set`/`get` are async for the same reason.
+
+### Added
+
+- **`IndexedDBDriver` and `EncryptedIndexedDBDriver`** (`src/drivers/IndexedDBDriver.ts`, `src/drivers/EncryptedIndexedDBDriver.ts`) — new, **opt-in** drivers (nothing constructs one for you; the default driver is unchanged). Single object store, out-of-line keys, structured-clone values (no JSON pass), a memoized connection so concurrent calls share one `open()`, `onblocked`/`onversionchange` handling, an `onUpgrade` migration hook, quota-error wrapping (`CacheQuotaExceededError`), and prefix-scoped `keys()`/`getAll()`/`clear()`. `EncryptedIndexedDBDriver` encrypts the whole record envelope while keeping a plaintext `expiresAt` for eviction without decrypting every row on GC.
+- **`getAll()`** added to `CacheDriverInterface`, `BaseCacheEngine` and `CacheManager` — reads every live (non-expired) entry owned by the driver as a single `{ key: value }` object, reachable the same way on every driver (`cache.getAll()`), not just the IndexedDB ones.
+- **`keys()`** added to `CacheDriverInterface` / `CacheManager` — lists the caller-facing keys owned by the active driver (prefix stripped).
+- **`errors.ts`** — `IndexedDBUnavailableError`, `CacheQuotaExceededError`, `IndexedDBBlockedError`, exported from the package root.
+
+### Security
+
+- **Prototype-pollution guard on bulk reads.** `getAll()` is the one place a stored key becomes an object property again, and cache keys are attacker-reachable (anything sharing the origin can write into IndexedDB). Every `getAll()` implementation builds onto a null-prototype object and routes `__proto__`/`constructor`/`prototype` keys through `Object.defineProperty` instead of bracket assignment, so a poisoned key round-trips as inert data instead of reaching a prototype setter.
+- **TTL-tamper protection in `EncryptedIndexedDBDriver`.** `expiresAt` is kept in the clear (so GC doesn't have to decrypt every row) but is also sealed inside the encrypted, authenticated envelope. `get()` always re-checks the authenticated copy, so editing the plaintext `expiresAt` to extend a TTL buys an attacker nothing — it only self-evicts the tampered row when shortened. A decrypt/auth failure (tampered cypher, rotated key) is treated as a miss and the poisoned entry is evicted, matching the 1.4.0 fix for `EncryptedLocalStorageDriver`.
+
+### Fixed
+
+- **`getCacheConfig` no longer widens its return type to a union of every config value.** It's now generic over `keyof CacheConfigurations`, so `getCacheConfig("encryption")` narrows to `CacheEncryptionConfigurations | undefined` instead of `string | number | CacheDriverInterface | ...`. Pre-existing since `1.1.0`; only surfaced once the package was checked under `--strict` for the first time (new `tsconfig.json`, no build step is added, `yarn test` is unaffected).
+
+### Migration from 1.x
+
+1. `await` every call: `cache.set/get/has/remove/clear/keys/getAll` all return promises now.
+2. If you read `getCacheConfig("encryption")` directly, its return type is now correctly narrowed — no code change needed unless you were relying on the looser inferred type.
+3. IndexedDB is **not** the default driver — existing `localStorage`/`sessionStorage`/`RunTimeDriver` consumers need no driver change at all. Opt into `IndexedDBDriver`/`EncryptedIndexedDBDriver` explicitly via `setCacheConfigurations({ driver: new IndexedDBDriver() })` if you want them.
+
 ## [1.4.0] — 2026-08-17
 
 Security release. **`RunTimeDriver.data` changed from a plain object to a `Map`** — see Breaking below; it is a minor bump because the field is an implementation detail of the driver, but anyone who reached into it directly must change their code.

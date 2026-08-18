@@ -16,63 +16,78 @@ describe("PlainSessionStorageDriver", () => {
     driver = new PlainSessionStorageDriver();
   });
 
-  afterEach(() => {
-    driver.clear();
+  afterEach(async () => {
+    await driver.clear();
   });
 
-  it("uses sessionStorage, not localStorage", () => {
-    driver.set("name", "Hasan");
+  it("uses sessionStorage, not localStorage", async () => {
+    await driver.set("name", "Hasan");
     expect(sessionStorage.getItem("name")).not.toBeNull();
     expect(localStorage.getItem("name")).toBeNull();
   });
 
-  it("set / get round-trips primitives and objects", () => {
-    driver.set("s", "Hasan");
-    driver.set("n", 42);
-    driver.set("o", { id: 1 });
-    expect(driver.get("s")).toBe("Hasan");
-    expect(driver.get("n")).toBe(42);
-    expect(driver.get("o")).toEqual({ id: 1 });
+  it("set / get round-trips primitives and objects", async () => {
+    await driver.set("s", "Hasan");
+    await driver.set("n", 42);
+    await driver.set("o", { id: 1 });
+    expect(await driver.get("s")).toBe("Hasan");
+    expect(await driver.get("n")).toBe(42);
+    expect(await driver.get("o")).toEqual({ id: 1 });
   });
 
-  it("get() returns the default value when the key is missing", () => {
-    expect(driver.get("ghost", "default")).toBe("default");
+  it("every storage method returns a promise", () => {
+    expect(driver.set("name", "Hasan")).toBeInstanceOf(Promise);
+    expect(driver.get("name")).toBeInstanceOf(Promise);
+    expect(driver.has("name")).toBeInstanceOf(Promise);
+    expect(driver.keys()).toBeInstanceOf(Promise);
+    expect(driver.remove("name")).toBeInstanceOf(Promise);
+    expect(driver.clear()).toBeInstanceOf(Promise);
   });
 
-  it("has() reports presence correctly", () => {
-    expect(driver.has("name")).toBe(false);
-    driver.set("name", "Hasan");
-    expect(driver.has("name")).toBe(true);
+  it("get() returns the default value when the key is missing", async () => {
+    expect(await driver.get("ghost", "default")).toBe("default");
   });
 
-  it("remove() drops the key", () => {
-    driver.set("name", "Hasan");
-    driver.remove("name");
-    expect(driver.has("name")).toBe(false);
+  it("has() reports presence correctly", async () => {
+    expect(await driver.has("name")).toBe(false);
+    await driver.set("name", "Hasan");
+    expect(await driver.has("name")).toBe(true);
   });
 
-  it("clear() empties the backing storage", () => {
-    driver.set("a", 1);
-    driver.set("b", 2);
-    driver.clear();
-    expect(driver.has("a")).toBe(false);
-    expect(driver.has("b")).toBe(false);
+  it("remove() drops the key", async () => {
+    await driver.set("name", "Hasan");
+    await driver.remove("name");
+    expect(await driver.has("name")).toBe(false);
   });
 
-  it("setPrefixKey() applies a prefix to every key", () => {
+  it("clear() empties the backing storage", async () => {
+    await driver.set("a", 1);
+    await driver.set("b", 2);
+    await driver.clear();
+    expect(await driver.has("a")).toBe(false);
+    expect(await driver.has("b")).toBe(false);
+  });
+
+  it("keys() lists the stored keys", async () => {
+    await driver.set("a", 1);
+    await driver.set("b", 2);
+    expect((await driver.keys()).sort()).toEqual(["a", "b"]);
+  });
+
+  it("setPrefixKey() applies a prefix to every key", async () => {
     driver.setPrefixKey("app-");
-    driver.set("name", "Hasan");
+    await driver.set("name", "Hasan");
     expect(sessionStorage.getItem("app-name")).not.toBeNull();
-    expect(driver.get("name")).toBe("Hasan");
-    driver.remove("name");
+    expect(await driver.get("name")).toBe("Hasan");
+    await driver.remove("name");
   });
 
-  it("expired entries return the default", () => {
+  it("expired entries return the default", async () => {
     vi.useFakeTimers();
     try {
-      driver.set("name", "Hasan", 1);
+      await driver.set("name", "Hasan", 1);
       vi.advanceTimersByTime(2 * 1000);
-      expect(driver.get("name", "default")).toBe("default");
+      expect(await driver.get("name", "default")).toBe("default");
     } finally {
       vi.useRealTimers();
     }

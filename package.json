@@ -1,17 +1,21 @@
 {
   "name": "@mongez/cache",
-  "version": "1.4.0",
-  "description": "Framework-agnostic cache facade with pluggable drivers — localStorage, sessionStorage, runtime memory, plus encrypted variants. One API, key prefixing, TTL, and a PersistAdapter-compatible shape for @mongez/atom.",
+  "version": "2.0.0",
+  "description": "Framework-agnostic async cache facade with pluggable drivers — localStorage, sessionStorage, IndexedDB, runtime memory, plus encrypted variants. One API, key prefixing, TTL, and a PersistAdapter-compatible shape for @mongez/atom.",
   "main": "src/index.ts",
   "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@mongez/encryption": "^1.0.x"
+    "@mongez/encryption": "^2.0.0"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
     "happy-dom": "^15.7.0",
     "typescript": "^5.4.0",
     "vitest": "^2.1.0"
@@ -21,6 +25,8 @@
     "cache-manager",
     "local-storage",
     "session-storage",
+    "indexeddb",
+    "async-cache",
     "runtime-cache",
     "memory-cache",
     "encryption-local-storage",

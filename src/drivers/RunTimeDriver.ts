@@ -7,6 +7,11 @@ export default class RunTimeDriver
 {
   /**
    * Set the storage engine
+   *
+   * The driver is its own backend: `getItem` / `setItem` / `removeItem`
+   * below stay synchronous, and `BaseCacheEngine` lifts them into
+   * promises so this driver satisfies the async contract shared with
+   * IndexedDB without paying for real asynchrony.
    */
   public storage = this;
 
@@ -82,7 +87,7 @@ export default class RunTimeDriver
   /**
    * {@inheritDoc}
    */
-  protected storageKeys(): string[] {
+  protected async storageKeys(): Promise<string[]> {
     return [...this.data.keys()];
   }
 
@@ -95,7 +100,7 @@ export default class RunTimeDriver
    * a prefix only the owned keys are dropped, without one the whole
    * in-memory store is wiped.
    */
-  public clear() {
+  public async clear() {
     const prefix = this.getPrefixKey();
 
     if (!prefix) {
@@ -104,7 +109,7 @@ export default class RunTimeDriver
       return this;
     }
 
-    for (const key of this.storageKeys()) {
+    for (const key of await this.storageKeys()) {
       if (key.startsWith(prefix)) {
         this.data.delete(key);
       }

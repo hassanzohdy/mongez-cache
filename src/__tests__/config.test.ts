@@ -34,27 +34,27 @@ describe("setCacheConfigurations", () => {
     expect(cache.getDriver()).toBe(driver);
   });
 
-  it("applies a prefix to the active driver", () => {
+  it("applies a prefix to the active driver", async () => {
     setCacheConfigurations({
       driver: new PlainLocalStorageDriver(),
       prefix: "config-test-",
     });
     expect(cache.getPrefixKey()).toBe("config-test-");
-    cache.set("name", "Hasan");
+    await cache.set("name", "Hasan");
     expect(localStorage.getItem("config-test-name")).not.toBeNull();
-    cache.remove("name");
+    await cache.remove("name");
   });
 
-  it("applies a custom value converter and parser to the active driver", () => {
+  it("applies a custom value converter and parser to the active driver", async () => {
     setCacheConfigurations({
       driver: new PlainLocalStorageDriver(),
       valueConverter: (v: any) => "wrap::" + JSON.stringify(v),
       valueParer: (v: any) => JSON.parse(v.slice(6)),
     });
-    cache.set("name", "Hasan");
+    await cache.set("name", "Hasan");
     expect(localStorage.getItem("name")!.startsWith("wrap::")).toBe(true);
-    expect(cache.get("name")).toBe("Hasan");
-    cache.clear();
+    expect(await cache.get("name")).toBe("Hasan");
+    await cache.clear();
   });
 
   it("merges new fields into the existing configuration record", () => {
@@ -105,7 +105,7 @@ describe("getCacheConfig", () => {
     expect(getCacheConfig("prefix")).toBe("lookup-");
   });
 
-  it("expiresAfter from configuration is applied as a default to set()", () => {
+  it("expiresAfter from configuration is applied as a default to set()", async () => {
     // When `expiresAfter` is set globally and no per-call expiry is
     // passed to `cache.set(...)`, the global one is used.
     const driver = new PlainLocalStorageDriver();
@@ -113,10 +113,10 @@ describe("getCacheConfig", () => {
       driver,
       expiresAfter: 1,
     });
-    driver.set("name", "Hasan");
+    await driver.set("name", "Hasan");
     const onDisk = JSON.parse(localStorage.getItem("name")!);
     // The envelope carries an expiresAt timestamp, not Infinity.
     expect(typeof onDisk.expiresAt).toBe("number");
-    driver.clear();
+    await driver.clear();
   });
 });

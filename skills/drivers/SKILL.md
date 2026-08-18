@@ -1,7 +1,7 @@
 ---
 name: mongez-cache-drivers
 description: |
-  Configure each shipped `@mongez/cache` driver — `PlainLocalStorageDriver`, `PlainSessionStorageDriver`, `RunTimeDriver` — with `setCacheConfigurations`, including prefix, global TTL, custom serialization (`valueConverter` / `valueParer`), and SSR-safe selection.
+  Configure each shipped `@mongez/cache` driver — `PlainLocalStorageDriver`, `PlainSessionStorageDriver`, `RunTimeDriver`, and the opt-in `IndexedDBDriver` — with `setCacheConfigurations`, including prefix, global TTL, custom serialization (`valueConverter` / `valueParer`), and SSR-safe selection. Every driver method is async.
 ---
 
 # @mongez/cache — Driver Configuration
@@ -35,15 +35,15 @@ type CacheConfigurations = {
   valueConverter?: (value: any) => any;        // replaces JSON.stringify
   valueParer?: (value: any) => any;            // replaces JSON.parse  (note: typo in type name is intentional)
   encryption?: {
-    encrypt: (value: any) => any;
-    decrypt: (value: any) => any;
+    encrypt: (value: any) => Promise<string> | string;
+    decrypt: (value: string) => Promise<any> | any;
   };
 };
 ```
 
 ### PlainLocalStorageDriver
 
-Reads and writes `window.localStorage`. Values are wrapped in a `{data, expiresAt}` JSON envelope before storage.
+Reads and writes `window.localStorage`. Values are wrapped in a `{data, expiresAt}` JSON envelope before storage. Every method returns a `Promise`, though the underlying work is synchronous.
 
 ```ts
 import { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
@@ -70,7 +70,7 @@ setCacheConfigurations({
 
 ### RunTimeDriver
 
-In-memory map. No Web Storage dependency — safe for tests and SSR. Data is gone when the page reloads or the process exits.
+In-memory `Map`. No Web Storage dependency — safe for tests and SSR. Data is gone when the page reloads or the process exits.
 
 ```ts
 import { RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
@@ -80,9 +80,19 @@ setCacheConfigurations({ driver: new RunTimeDriver() });
 
 Two `RunTimeDriver` instances are independent: they do not share any global store.
 
+### IndexedDBDriver (opt-in)
+
+Never wired up by default — opt in explicitly, since opening a database is a side effect a plain import shouldn't trigger. Structured-clone values (no JSON pass), suited to storage beyond Web Storage's ~5MB quota. See the `indexeddb` skill for the full reference (options, migration hook, error types, `EncryptedIndexedDBDriver`).
+
+```ts
+import { IndexedDBDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({ driver: new IndexedDBDriver() });
+```
+
 ### SSR-safe driver selection
 
-`localStorage` and `sessionStorage` do not exist in Node. Gate driver selection:
+`localStorage`, `sessionStorage` and `indexedDB` do not exist in Node. Gate driver selection:
 
 ```ts
 import { PlainLocalStorageDriver, RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
@@ -94,6 +104,8 @@ const driver =
 
 setCacheConfigurations({ driver, prefix: "ssr-" });
 ```
+
+`IndexedDBDriver.isSupported()` is a static helper for the same check, useful when you're choosing between IndexedDB and a Web Storage driver rather than falling back to `RunTimeDriver`.
 
 ### Custom serialization
 
@@ -116,6 +128,8 @@ driver
   .setValueParser((v) => myDeserialize(v));
 ```
 
+`IndexedDBDriver` uses structured clone by default (identity converter/parser) — only override these if you need to transform values before/after the clone.
+
 ### Multiple CacheManager instances
 
 The default `cache` export is a singleton. For isolated concerns (e.g. session state vs. long-lived prefs), create a second manager:
@@ -134,7 +148,7 @@ prefsCache.setPrefixKey("prefs-");
 
 ### Building a custom driver
 
-Extend `BaseCacheEngine` and point `storage` at any object that exposes `getItem / setItem / removeItem / clear`. The base class handles the expiry envelope, prefix, and corruption recovery.
+Extend `BaseCacheEngine` and point `storage` at any object that exposes `getItem / setItem / removeItem / clear`. The base class handles the expiry envelope, prefix, and corruption recovery, and lifts the result into the shared `Promise`-returning contract. See the `custom-drivers` skill for the full walkthrough.
 
 ```ts
 import { BaseCacheEngine } from "@mongez/cache";
@@ -153,8 +167,10 @@ setCacheConfigurations({ driver: new CookieDriver() });
 
 ## Key details / Pitfalls
 
+- **Every driver method returns a `Promise`.** `set` / `get` / `has` / `remove` / `clear` / `keys` / `getAll` — `await` all of them, on every driver, as of 2.0.0.
 - **`setCacheConfigurations` is not idempotent in every case.** It merges into an internal `configuration` object, but the `prefix` and serializers are applied to the driver directly when the call is made. Calling it a second time with a new driver will push new config to the new driver, not re-apply the old prefix.
 - **`prefix` affects the raw storage key, not the key you pass to `get/set`.** Pass the bare key to all methods; the prefix is injected automatically.
 - **`expiresAfter: 0` disables expiry** (falsy check in the base engine). Use `undefined` or omit the key to get the same result.
 - **`valueParer` is misspelled** in the `CacheConfigurations` type (one `r`). Use `valueParer` — not `valueParser` — when passing it to `setCacheConfigurations`. The per-driver method is correctly named `setValueParser`.
 - **Encrypted drivers require the `encryption` key in `setCacheConfigurations`.** Without it, `encrypt` / `decrypt` are `undefined` and the driver will throw. See the `encrypted-cache` skill for the full setup.
+- **`IndexedDBDriver` is never the default.** Nothing in the package constructs one for you — opt in explicitly.

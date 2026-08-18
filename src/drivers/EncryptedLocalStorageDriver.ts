@@ -12,8 +12,12 @@ export default class EncryptedLocalStorageDriver
    * Wraps the value in a `{data, expiresAt}` envelope (matching the
    * plain driver shape) BEFORE encrypting, so the encrypted variant
    * honors `expiresAfter` just like the plain drivers do.
+   *
+   * The configured `encrypt` is awaited: @mongez/encryption 2.x returns
+   * a promise (WebCrypto AES-GCM cannot be synchronous), while 1.x
+   * returned a string. `await` accepts both.
    */
-  public set(key: string, value: any, expiresAfter?: number) {
+  public async set(key: string, value: any, expiresAfter?: number) {
     const expireTime: number | false =
       expiresAfter !== undefined
         ? expiresAfter
@@ -23,13 +27,14 @@ export default class EncryptedLocalStorageDriver
       ? new Date().getTime() + expireTime * 1000
       : undefined;
 
-    this.storage.setItem(
-      this.getKey(key),
-      getCacheConfig("encryption")?.encrypt({
-        data: value,
-        expiresAt,
-      })
-    );
+    const encryption = getCacheConfig("encryption");
+
+    const cypher = await encryption?.encrypt({
+      data: value,
+      expiresAt,
+    });
+
+    await this.write(this.getKey(key), cypher);
 
     return this;
   }
@@ -46,14 +51,17 @@ export default class EncryptedLocalStorageDriver
    * truncated write) must not make every subsequent read throw, so the
    * poisoned entry is evicted and the default value is returned —
    * the same self-healing behavior `BaseCacheEngine.get()` implements.
+   * With an authenticated cipher (AES-GCM) that eviction is also the
+   * tamper response: a modified cypher fails the tag check, so it is
+   * dropped rather than returned as data.
    */
-  public get(key: string, defaultValue: any = null) {
-    let value = this.storage.getItem(this.getKey(key));
+  public async get(key: string, defaultValue: any = null) {
+    const value = await this.read(this.getKey(key));
 
     if (!value) return defaultValue;
 
     try {
-      const decrypted = getCacheConfig("encryption")?.decrypt(value);
+      const decrypted = await getCacheConfig("encryption")?.decrypt(value);
 
       // Legacy format detection: pre-envelope cyphers decrypt to
       // arbitrary user data (string / number / object without
@@ -70,22 +78,37 @@ export default class EncryptedLocalStorageDriver
       }
 
       if (decrypted.expiresAt && decrypted.expiresAt < new Date().getTime()) {
-        this.remove(key);
+        await this.remove(key);
         return defaultValue;
       }
 
       return decrypted.data;
     } catch (error) {
-      this.remove(key);
+      await this.remove(key);
       return defaultValue;
     }
   }
 
   /**
+   * Determine whether the cache engine has a live entry for the key
+   *
+   * Presence is decided without decrypting: the cypher is opaque, and
+   * running the (now async) decrypt on every `has()` would leak both
+   * CPU and, on a rotated key, entries — an eviction is a write, and a
+   * read-shaped call should not silently rewrite storage. Expiry is
+   * therefore enforced by `get()`, which has to decrypt anyway.
+   */
+  public async has(key: string): Promise<boolean> {
+    const value = await this.read(this.getKey(key));
+
+    return value !== null && value !== undefined;
+  }
+
+  /**
    * Remove key from storage
    */
-  public remove(key: string) {
-    this.storage.removeItem(this.getKey(key));
+  public async remove(key: string) {
+    await this.delete(this.getKey(key));
 
     return this;
   }

@@ -1,12 +1,14 @@
 # @mongez/cache — full reference
 
-> A framework-agnostic cache facade with pluggable drivers — localStorage, sessionStorage, in-memory, encrypted. This is the concatenated reference; load `llms.txt` for the structured index instead.
+> A framework-agnostic **async** cache facade with pluggable drivers — localStorage, sessionStorage, opt-in IndexedDB, in-memory, encrypted. This is the concatenated reference; load `llms.txt` for the structured index instead. Requires **Node >=20**.
 
 ## Install
 
 ```sh
 yarn add @mongez/cache
 ```
+
+Requires Node >=20 for the build/test toolchain. `@mongez/encryption` (`^2.0.0`) is an optional peer dependency, needed only for the encrypted drivers.
 
 ## Public exports
 
@@ -19,12 +21,24 @@ import cache, {
   EncryptedLocalStorageDriver,
   EncryptedSessionStorageDriver,
   RunTimeDriver,
+  IndexedDBDriver,
+  EncryptedIndexedDBDriver,
+  DEFAULT_INDEXED_DB_NAME,
+  DEFAULT_INDEXED_DB_STORE,
+  DEFAULT_INDEXED_DB_VERSION,
   setCacheConfigurations,
   getCacheConfigurations,
   getCacheConfig,
+  IndexedDBUnavailableError,
+  CacheQuotaExceededError,
+  IndexedDBBlockedError,
   type CacheDriverInterface,
   type CacheManagerInterface,
   type CacheConfigurations,
+  type CacheEncryptionConfigurations,
+  type IndexedDBDriverOptions,
+  type IndexedDBUpgradeContext,
+  type IndexedDBCacheRecord,
 } from "@mongez/cache";
 ```
 
@@ -34,11 +48,13 @@ The default export is a ready-to-use `CacheManager` instance — call `setCacheC
 
 ```ts
 type CacheDriverInterface = {
-  set(key: string, value: any, expiresAfter?: number): CacheDriverInterface;
-  get(key: string, defaultValue?: any): any;
-  has(key: string): boolean;
-  remove(key: string): CacheDriverInterface;
-  clear(): CacheDriverInterface;
+  set(key: string, value: any, expiresAfter?: number): Promise<CacheDriverInterface>;
+  get(key: string, defaultValue?: any): Promise<any>;
+  has(key: string): Promise<boolean>;
+  remove(key: string): Promise<CacheDriverInterface>;
+  clear(): Promise<CacheDriverInterface>;
+  keys(): Promise<string[]>;
+  getAll(): Promise<Record<string, any>>;
   setPrefixKey(key: string): CacheDriverInterface;
   getPrefixKey(): string;
   setValueParser(parser: any): CacheDriverInterface;
@@ -46,21 +62,25 @@ type CacheDriverInterface = {
 };
 ```
 
-Every driver in the package implements this. Custom drivers extend `BaseCacheEngine` and inherit the contract.
+Every driver in the package implements this. Custom drivers extend `BaseCacheEngine` (for a `getItem`/`setItem`/`removeItem`/`clear`-shaped backend) or implement `CacheDriverInterface` directly (for anything else — `IndexedDBDriver` does this).
+
+**As of 2.0.0, every storage-touching method is async.** Web Storage and `RunTimeDriver` still do their work synchronously under the hood and simply resolve immediately, so `await` (or `.then`) at each call site is required regardless of backend. The prefix / value-parser / value-converter setters stay synchronous — they mutate the driver, not the storage, which preserves fluent chaining like `new RunTimeDriver().setPrefixKey("app-")`.
 
 ## The CacheManager facade
 
-> **Auto-trigger:** code imports `cache` (default), `CacheManager`, `setCacheConfigurations`, `getCacheConfigurations`, or `getCacheConfig` from `@mongez/cache`; user asks "how do I bootstrap `@mongez/cache`", "how do I hot-swap the driver", or "how do I have two cache managers side by side"; `import cache, { CacheManager } from "@mongez/cache"`.
-> **Skip when:** per-driver options (`PlainLocalStorageDriver` etc.) — use `mongez-cache-drivers`; daily `cache.set` / `cache.get` / `cache.has` calls — use `mongez-cache-basic-usage`; encrypted setup — use `mongez-cache-encryption` / `mongez-cache-encrypted-cache`; building a custom backend — use `mongez-cache-custom-drivers`.
+> **Auto-trigger:** code imports `cache` (default), `CacheManager`, `setCacheConfigurations`, `getCacheConfigurations`, or `getCacheConfig` from `@mongez/cache`; user asks "how do I bootstrap `@mongez/cache`", "how do I hot-swap the driver", "how do I have two cache managers side by side", or "how do I read every cached entry at once"; `import cache, { CacheManager } from "@mongez/cache"`.
+> **Skip when:** per-driver options (`PlainLocalStorageDriver` etc.) — use `mongez-cache-drivers`; daily `cache.set` / `cache.get` / `cache.has` calls — use `mongez-cache-basic-usage`; encrypted setup — use `mongez-cache-encryption` / `mongez-cache-encrypted-cache`; IndexedDB specifics — use `mongez-cache-indexeddb`; building a custom backend — use `mongez-cache-custom-drivers`.
 
 ```ts
 import cache, { CacheManager } from "@mongez/cache";
 
-cache.set(...);
-cache.get(...);
-cache.remove(...);
-cache.has(...);
-cache.clear();
+await cache.set(...);
+await cache.get(...);
+await cache.remove(...);
+await cache.has(...);
+await cache.keys();
+await cache.getAll();
+await cache.clear();
 cache.setPrefixKey("scoped-");
 cache.getPrefixKey();
 cache.setDriver(driver);
@@ -85,10 +105,10 @@ type CacheConfigurations = {
   prefix?: string;
   expiresAfter?: number;                // seconds; per-entry default
   valueConverter?: (value: any) => any;
-  valueParer?: (value: any) => any;      // (sic — see CHANGELOG)
+  valueParer?: (value: any) => any;      // (sic — see Gotchas)
   encryption?: {
-    encrypt: (value: any) => any;
-    decrypt: (value: any) => any;
+    encrypt: (value: any) => Promise<string> | string;
+    decrypt: (value: string) => Promise<any> | any;
   };
 };
 
@@ -101,6 +121,8 @@ getCacheConfig<K extends keyof CacheConfigurations>(key: K): CacheConfigurations
 - Installs the driver on the default `cache` manager.
 - Applies prefix / value-converter / value-parser to that driver.
 - Records the rest in a module-level singleton for later reads.
+
+`getCacheConfig` is generic over `keyof CacheConfigurations`, so the return type narrows to the key you pass rather than widening to a union of every config value's type (fixed in 2.0.0; pre-existing since 1.1.0, only surfaced once the package was checked under `--strict`).
 
 ```ts
 import { PlainLocalStorageDriver, setCacheConfigurations } from "@mongez/cache";
@@ -115,34 +137,34 @@ setCacheConfigurations({
 ## PlainLocalStorageDriver
 
 > **Auto-trigger:** code calls `new PlainLocalStorageDriver()` or imports `PlainLocalStorageDriver` from `@mongez/cache`; user asks "how do I persist cache across reloads", "what's the on-disk format for `@mongez/cache`", or "how do I handle the localStorage quota / SSR"; `import { PlainLocalStorageDriver } from "@mongez/cache"`.
-> **Skip when:** tab-scoped storage — use `mongez-cache-session-storage`; in-memory ephemeral cache — use `mongez-cache-runtime`; encrypted-at-rest variant — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; choosing among all drivers at once — use `mongez-cache-drivers`.
+> **Skip when:** tab-scoped storage — use `mongez-cache-session-storage`; in-memory ephemeral cache — use `mongez-cache-runtime`; encrypted-at-rest variant — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; structured/large values — use `mongez-cache-indexeddb`; choosing among all drivers at once — use `mongez-cache-drivers`.
 
 ```ts
 import { PlainLocalStorageDriver } from "@mongez/cache";
 
 const driver = new PlainLocalStorageDriver();
-driver.set("name", "Hasan");
-driver.get("name");                     // "Hasan"
-driver.has("name");                     // true
-driver.remove("name");
-driver.clear();
+await driver.set("name", "Hasan");
+await driver.get("name");               // "Hasan"
+await driver.has("name");               // true
+await driver.remove("name");
+await driver.clear();
 ```
 
-JSON-serializes values into an envelope `{data, expiresAt}` before writing. Reads parse the envelope and check expiry. A corrupted entry returns the default value silently.
+JSON-serializes values into an envelope `{data, expiresAt}` before writing. Reads parse the envelope and check expiry. A corrupted entry returns the default value silently. Every method returns a `Promise`, though the underlying work is synchronous.
 
 ## PlainSessionStorageDriver
 
 > **Auto-trigger:** code calls `new PlainSessionStorageDriver()` or imports `PlainSessionStorageDriver` from `@mongez/cache`; user asks "how do I cache scroll position / draft form data per tab", "how do I make a wizard remember progress through refreshes only", or "how do I use sessionStorage with `@mongez/cache`"; `import { PlainSessionStorageDriver } from "@mongez/cache"`.
 > **Skip when:** cross-session persistence — use `mongez-cache-local-storage`; in-memory only cache — use `mongez-cache-runtime`; encrypted variant of session storage — use `mongez-cache-encryption` or `mongez-cache-encrypted-cache`; choosing among all drivers — use `mongez-cache-drivers`.
 
-Same contract; backed by `window.sessionStorage`. Cleared when the tab closes.
+Same async contract; backed by `window.sessionStorage`. Cleared when the tab closes.
 
 ## EncryptedLocalStorageDriver / EncryptedSessionStorageDriver
 
-> **Auto-trigger:** code imports `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver` from `@mongez/cache`; user asks "how do encrypted cache drivers work", "what's the encryption pair contract", or "why don't encrypted entries expire"; `import { EncryptedLocalStorageDriver } from "@mongez/cache"`.
-> **Skip when:** full step-by-step encrypted setup with `@mongez/encryption` and atom adapters — use `mongez-cache-encrypted-cache`; plain (unencrypted) drivers — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
+> **Auto-trigger:** code imports `EncryptedLocalStorageDriver` or `EncryptedSessionStorageDriver` from `@mongez/cache`; user asks "how do encrypted cache drivers work", "what's the encryption pair contract", or "how does TTL survive tampering"; `import { EncryptedLocalStorageDriver } from "@mongez/cache"`.
+> **Skip when:** full step-by-step encrypted setup with `@mongez/encryption` and atom adapters — use `mongez-cache-encrypted-cache`; encrypted IndexedDB — use `mongez-cache-indexeddb`; plain (unencrypted) drivers — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; daily `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 
-Require an encrypt/decrypt pair in configuration:
+Require an encrypt/decrypt pair in configuration; both hooks may be sync or async:
 
 ```ts
 import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
@@ -156,35 +178,124 @@ setCacheConfigurations({
 });
 ```
 
-Values pass through `encrypt` on write and `decrypt` on read. The pair is looked up via `getCacheConfig("encryption")` on every operation, so rotating it doesn't require new driver instances.
+Values pass through `encrypt` on write and `decrypt` on read (both `await`ed). The pair is looked up via `getCacheConfig("encryption")` on every operation, so rotating it doesn't require new driver instances.
 
-**Known bug**: `expiresAfter` is ignored — encrypted entries never expire automatically (`drivers/EncryptedLocalStorageDriver.ts:12`).
+**A tampered or undecryptable entry is evicted, not thrown.** A corrupted cypher, a rotated key, or a failed auth tag makes `get()` remove the offending entry and return the default value instead of throwing from a call site callers reasonably expect to be infallible.
 
 ## RunTimeDriver
 
-> **Auto-trigger:** code calls `new RunTimeDriver()` or imports `RunTimeDriver` from `@mongez/cache`; user asks "how do I get an in-memory cache for tests", "how do I make cache SSR-safe in Node", or "why does `has()` return `true` for missing keys"; `import { RunTimeDriver } from "@mongez/cache"`.
-> **Skip when:** localStorage-backed persistence — use `mongez-cache-local-storage`; tab-scoped storage — use `mongez-cache-session-storage`; encrypted drivers — use `mongez-cache-encryption`; building a brand-new backend — use `mongez-cache-custom-drivers`.
+> **Auto-trigger:** code calls `new RunTimeDriver()` or imports `RunTimeDriver` from `@mongez/cache`; user asks "how do I get an in-memory cache for tests", or "how do I make cache SSR-safe in Node"; `import { RunTimeDriver } from "@mongez/cache"`.
+> **Skip when:** localStorage-backed persistence — use `mongez-cache-local-storage`; tab-scoped storage — use `mongez-cache-session-storage`; encrypted drivers — use `mongez-cache-encryption`; structured/large values — use `mongez-cache-indexeddb`; building a brand-new backend — use `mongez-cache-custom-drivers`.
 
 ```ts
 import { RunTimeDriver, setCacheConfigurations } from "@mongez/cache";
 
 setCacheConfigurations({ driver: new RunTimeDriver() });
 
-cache.set("name", "Hasan");
-cache.get("name");                      // "Hasan"
+await cache.set("name", "Hasan");
+await cache.get("name");                // "Hasan"
 // Reload — gone.
 ```
 
-In-memory map. Two `RunTimeDriver` instances on the same page have independent stores. Respects TTL via the same envelope mechanism as the storage-backed drivers.
+Backed by a `Map<string, any>`, not a plain object — cache keys are caller-controlled, and a plain object resolves `__proto__` / `constructor` / `toString` through the prototype chain. Two `RunTimeDriver` instances on the same page have independent stores. Respects TTL via the same envelope mechanism as the storage-backed drivers. `has(missingKey)` resolves to `false` and agrees with `get()` on expiry.
 
-**Known bug**: `has(missingKey)` returns `true` (`drivers/RunTimeDriver.ts:24`).
+## IndexedDBDriver / EncryptedIndexedDBDriver (opt-in, 2.0.0+)
+
+> **Auto-trigger:** code calls `new IndexedDBDriver()` / `new EncryptedIndexedDBDriver()`, or imports either from `@mongez/cache`; user asks "how do I cache structured data / large values", "how do I use IndexedDB with `@mongez/cache`", "why is `CacheQuotaExceededError` / `IndexedDBUnavailableError` / `IndexedDBBlockedError` thrown", or "is IndexedDB the default driver"; `import { IndexedDBDriver } from "@mongez/cache"`.
+> **Skip when:** Web Storage is sufficient — use `mongez-cache-local-storage` / `mongez-cache-session-storage`; plain encrypted Web Storage — use `mongez-cache-encryption`; everyday `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
+
+**Never the default.** Nothing in the package constructs one for you — opening a database is a side effect a plain import shouldn't trigger. Opt in explicitly:
+
+```ts
+import cache, { IndexedDBDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({ driver: new IndexedDBDriver() });
+
+await cache.set("session.preferences", { theme: "dark", lastSeen: new Date() });
+await cache.get("session.preferences"); // { theme: "dark", lastSeen: Date }
+```
+
+Storage layout: a single object store with out-of-line keys, where the key is the (prefixed) cache key and the record is `{ value, expiresAt }`. Values go through the structured clone algorithm, so `Date`, `Map`, `Set`, `ArrayBuffer` and friends survive a round-trip untouched — no JSON pass by default. Non-cloneable values (functions, DOM nodes) throw synchronously; supply `setValueConverter` / `setValueParser` if you need to serialize those yourself.
+
+```ts
+type IndexedDBDriverOptions = {
+  databaseName?: string;   // default: "mongez-cache"
+  storeName?: string;      // default: "cache"
+  version?: number;        // default: 1
+  onUpgrade?: (context: IndexedDBUpgradeContext) => void;
+};
+
+const driver = new IndexedDBDriver({
+  databaseName: "my-app",
+  version: 2,
+  onUpgrade({ database, store, oldVersion, newVersion, transaction }) {
+    // The cache object store already exists by the time this runs.
+    // Keep this synchronous — IndexedDB closes the upgrade transaction
+    // the moment control returns to the event loop.
+  },
+});
+
+IndexedDBDriver.isSupported(); // check before opting in, e.g. during SSR
+await driver.close();          // close the connection early; reopens on next call
+```
+
+Concurrent calls made before the database is open share one memoized `open()` request. `onblocked` (another tab holds an older version) rejects with `IndexedDBBlockedError`; `onversionchange` (another tab upgrades) drops the connection so the next operation reopens it.
+
+`keys()` / `getAll()` walk the store with a cursor inside a single transaction; `getAll()` builds onto a null-prototype object with `Object.defineProperty` for forbidden keys, same guard as the other drivers. `clear()` is prefix-scoped exactly like the Web Storage engines — with a prefix, a cursor deletes only matching keys inside one transaction; with none, `store.clear()` wipes the whole store.
+
+**`EncryptedIndexedDBDriver`** extends `IndexedDBDriver` and requires the same `encryption` configuration:
+
+```ts
+import { encrypt, decrypt, setEncryptionConfigurations } from "@mongez/encryption";
+import { EncryptedIndexedDBDriver, setCacheConfigurations } from "@mongez/cache";
+
+setEncryptionConfigurations({ key: "app-secret" });
+
+setCacheConfigurations({
+  driver: new EncryptedIndexedDBDriver(),
+  encryption: { encrypt, decrypt },
+});
+
+await cache.set("auth.tokens", { access, refresh }, 60 * 30);
+```
+
+The whole `{data, expiresAt}` envelope is encrypted; `expiresAt` is also kept in the clear on the record so GC can evict without decrypting every row, but `get()` always re-checks the authenticated copy inside the cypher — tampering with the plaintext value cannot extend the effective TTL. A decrypt/auth failure evicts the entry and returns the default, matching the encrypted Web Storage drivers. `getAll()` on this driver decrypts one key at a time via `get()` (a transaction can't `await` a decrypt mid-flight), unlike the plain driver's single-cursor implementation.
+
+### IndexedDB error types
+
+Exported from the package root:
+
+| Error | Thrown when |
+|---|---|
+| `IndexedDBUnavailableError` | `indexedDB` is not defined in this runtime — SSR, Node, a worker without the API, or a browser mode that blocks storage. Thrown loudly instead of silently degrading to a cache miss. |
+| `CacheQuotaExceededError` | A write is rejected for being out of origin quota. Carries the offending `key` and the original error as `cause`. |
+| `IndexedDBBlockedError` | Another tab holds the database open at an older version, blocking a schema upgrade. |
+
+## `keys()` and `getAll()`
+
+Every driver — Web Storage, runtime, and IndexedDB alike — supports:
+
+```ts
+keys(): Promise<string[]>              // caller-facing keys, prefix stripped
+getAll(): Promise<Record<string, any>> // every live (non-expired) entry, keyed the same way
+```
+
+```ts
+await cache.set("user.name", "Hasan");
+await cache.set("user.email", "hasan@example.com");
+
+await cache.keys();   // ["user.name", "user.email"]
+await cache.getAll(); // { "user.name": "Hasan", "user.email": "hasan@example.com" }
+```
+
+`getAll()` builds its result onto a null-prototype object and defines any stored `__proto__` / `constructor` / `prototype` key via `Object.defineProperty` rather than bracket assignment. Cache keys are attacker-reachable — anything sharing the origin can write into localStorage / sessionStorage / IndexedDB — so this guards the one place a stored key becomes an object property again.
 
 ## TTL — per call or global
 
 Per call (third argument to `set`, in seconds):
 
 ```ts
-cache.set("token", "abc", 60 * 15);     // 15 minutes
+await cache.set("token", "abc", 60 * 15);     // 15 minutes
 ```
 
 Global default (used when `set` omits the per-call argument):
@@ -195,11 +306,11 @@ setCacheConfigurations({
   expiresAfter: 60 * 60,
 });
 
-cache.set("user", payload);             // expires in 1 hour
-cache.set("session", value, 60);        // overrides to 1 minute
+await cache.set("user", payload);             // expires in 1 hour
+await cache.set("session", value, 60);        // overrides to 1 minute
 ```
 
-Reads past the expiry window return the default and drop the entry.
+Reads past the expiry window return the default and drop the entry. `has()` performs the same check and agrees with `get()` on every driver.
 
 ## Prefixing
 
@@ -209,7 +320,7 @@ setCacheConfigurations({
   prefix: "shop-",
 });
 
-cache.set("user", value);
+await cache.set("user", value);
 // On disk: { "shop-user": "{...}" }
 ```
 
@@ -220,7 +331,7 @@ driver.setPrefixKey("shop-");
 driver.getPrefixKey();                  // "shop-"
 ```
 
-Prefixes are not enforced — overlapping prefixes across drivers share storage. Pick a stable string per app.
+Prefixes are not enforced — overlapping prefixes across drivers share storage. Pick a stable string per app. `clear()` is scoped to the configured prefix; with none configured, the driver owns the whole namespace and `clear()` wipes it entirely.
 
 ## Custom serialization
 
@@ -242,10 +353,12 @@ driver
   .setValueParser((v) => myDecode(v));
 ```
 
+`IndexedDBDriver` uses identity converter/parser by default (structured clone needs no encoding) — override these only if you need to transform values before/after the clone.
+
 ## Custom drivers
 
-> **Auto-trigger:** code declares `class X extends BaseCacheEngine` or imports `BaseCacheEngine` from `@mongez/cache`; user asks "how do I build a custom cache driver", "how do I back the cache with IndexedDB / cookies", or "how do I override the `{data, expiresAt}` envelope / serialization"; `import { BaseCacheEngine } from "@mongez/cache"`.
-> **Skip when:** picking among the shipped drivers — use `mongez-cache-drivers`; in-memory runtime driver — use `mongez-cache-runtime`; encrypted drivers — use `mongez-cache-encryption`; everyday `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
+> **Auto-trigger:** code declares `class X extends BaseCacheEngine` or imports `BaseCacheEngine` from `@mongez/cache`; user asks "how do I build a custom cache driver", "how do I back the cache with cookies / a remote store", or "how do I override the `{data, expiresAt}` envelope / serialization"; `import { BaseCacheEngine } from "@mongez/cache"`.
+> **Skip when:** picking among the shipped drivers — use `mongez-cache-drivers`; in-memory runtime driver — use `mongez-cache-runtime`; encrypted drivers — use `mongez-cache-encryption`; IndexedDB — use `mongez-cache-indexeddb`; everyday `cache.set` / `cache.get` usage — use `mongez-cache-basic-usage`.
 
 Extend `BaseCacheEngine`:
 
@@ -264,26 +377,27 @@ class CookieDriver extends BaseCacheEngine {
 
 The base engine handles:
 - the `{data, expiresAt}` envelope,
-- expiration checks on read,
-- prefix application,
+- expiration checks on read (and agreement between `has()` and `get()`),
+- prefix application (including prefix-scoped `clear()`),
 - JSON serialization (or your override),
-- fall-through to the default on parse errors.
+- fall-through to the default on parse errors,
+- lifting a synchronous (or async) `storage` into the shared `Promise`-returning contract.
 
-Only `storage` is required; override `convertValue` / `parseValue` if your backend needs a different shape (the `RunTimeDriver` does this — it stores objects directly rather than JSON strings).
+Only `storage` is required; override `convertValue` / `parseValue` if your backend needs a different shape (`RunTimeDriver` does this — it stores objects directly rather than JSON strings). For a backend whose transaction model doesn't fit `getItem`/`setItem`/`removeItem`/`clear` at all, implement `CacheDriverInterface` directly instead — `IndexedDBDriver` is the in-tree reference for that pattern.
 
 ## Using with @mongez/atom
 
-`@mongez/atom`'s `persist` option accepts any `PersistAdapter<V>`:
+`@mongez/atom`'s `persist` option accepts any async `PersistAdapter<V>`:
 
 ```ts
 type PersistAdapter<V = unknown> = {
-  get(key: string): V | undefined | Promise<V | undefined>;
-  set(key: string, value: V): void | Promise<void>;
-  remove(key: string): void | Promise<void>;
+  get(key: string): Promise<V | undefined>;
+  set(key: string, value: V): Promise<void>;
+  remove(key: string): Promise<void>;
 };
 ```
 
-`@mongez/cache`'s manager / driver shape matches by name. The thin wrapper below normalizes return values so atom's TypeScript sees `void` on writes:
+`@mongez/cache`'s manager / driver shape matches by name and is already async — no wrapper needed to satisfy the types, though `set`/`remove` resolve to the driver instance rather than `void`, which atom ignores:
 
 ```ts
 import { createAtom } from "@mongez/atom";
@@ -294,12 +408,8 @@ const userAtom = createAtom({
   default: { name: "Anon" },
   persist: {
     get: (key) => cache.get(key),
-    set: (key, value) => {
-      cache.set(key, value);
-    },
-    remove: (key) => {
-      cache.remove(key);
-    },
+    set: (key, value) => cache.set(key, value),
+    remove: (key) => cache.remove(key),
   },
 });
 ```
@@ -312,12 +422,8 @@ import cache from "@mongez/cache";
 
 export const cacheAdapter = {
   get: (key: string) => cache.get(key),
-  set: (key: string, value: unknown) => {
-    cache.set(key, value);
-  },
-  remove: (key: string) => {
-    cache.remove(key);
-  },
+  set: (key: string, value: unknown) => cache.set(key, value),
+  remove: (key: string) => cache.remove(key),
 };
 ```
 
@@ -333,11 +439,11 @@ const themeAtom = createAtom({
 });
 ```
 
-This composes well with the encrypted drivers — tokens / refresh tokens / PII end up encrypted on disk without leaking driver details into atom definitions.
+This composes well with the encrypted (and IndexedDB) drivers — tokens / refresh tokens / PII end up encrypted on disk without leaking driver details into atom definitions.
 
 ## SSR
 
-Web-Storage drivers throw on the server. Pick a different driver per environment:
+Web-Storage and IndexedDB drivers throw / are unavailable on the server. Pick a different driver per environment:
 
 ```ts
 const driver = typeof window === "undefined"
@@ -347,11 +453,11 @@ const driver = typeof window === "undefined"
 setCacheConfigurations({ driver });
 ```
 
-Or write a custom cookie-backed driver — the contract is small.
+`IndexedDBDriver.isSupported()` is a static check for the same purpose when choosing between IndexedDB and a Web Storage driver. Or write a custom cookie-backed driver — the contract is small.
 
 ## Patterns
 
-> **Auto-trigger:** user asks "show me an end-to-end `@mongez/cache` example", "how do I persist `@mongez/atom` atoms with `@mongez/cache`", "how do I namespace multiple apps on one domain", "how do I subscribe to cache writes", or "how do I do SSR with `@mongez/cache`"; pull-in pattern: `import { createAtom } from "@mongez/atom"` alongside `import cache from "@mongez/cache"`.
+> **Auto-trigger:** user asks "show me an end-to-end `@mongez/cache` example", "how do I persist `@mongez/atom` atoms with `@mongez/cache`", "how do I namespace multiple apps on one domain", "how do I subscribe to cache writes", "how do I snapshot the whole cache", or "how do I do SSR with `@mongez/cache`"; pull-in pattern: `import { createAtom } from "@mongez/atom"` alongside `import cache from "@mongez/cache"`.
 > **Skip when:** bare API surface of a single function or driver — use `mongez-cache-basic-usage`, `mongez-cache-manager`, or the per-driver skills; building a brand-new driver — use `mongez-cache-custom-drivers`; first-time discovery of the package — use `mongez-cache-overview`.
 
 ### Multi-app domain — namespace by prefix
@@ -373,8 +479,8 @@ setCacheConfigurations({
 ### Token storage with short TTL
 
 ```ts
-cache.set("session.token", token, 60 * 30);                  // 30 minutes
-cache.set("session.refreshToken", refreshToken, 60 * 60 * 24); // 24 hours
+await cache.set("session.token", token, 60 * 30);                  // 30 minutes
+await cache.set("session.refreshToken", refreshToken, 60 * 60 * 24); // 24 hours
 ```
 
 ### Encrypted token storage
@@ -390,8 +496,19 @@ setCacheConfigurations({
   encryption: { encrypt, decrypt },
 });
 
-cache.set("session.token", token);
+await cache.set("session.token", token);
 // On disk: encrypted cypher, not the bare token.
+```
+
+### Structured / large values via IndexedDB
+
+```ts
+import cache, { IndexedDBDriver, setCacheConfigurations } from "@mongez/cache";
+
+setCacheConfigurations({ driver: new IndexedDBDriver() });
+
+await cache.set("report.rows", hugeRowArray);
+await cache.set("report.generatedAt", new Date());
 ```
 
 ### Multi-store separation
@@ -405,8 +522,14 @@ longLived.setDriver(new PlainLocalStorageDriver()).setPrefixKey("pref-");
 const ephemeral = new CacheManager();
 ephemeral.setDriver(new PlainSessionStorageDriver()).setPrefixKey("session-");
 
-longLived.set("theme", "dark");
-ephemeral.set("scroll.y", 312);
+await longLived.set("theme", "dark");
+await ephemeral.set("scroll.y", 312);
+```
+
+### Snapshot the whole cache
+
+```ts
+const snapshot = await cache.getAll(); // { key: value, ... }
 ```
 
 ## Lifecycle events
@@ -420,13 +543,13 @@ import cache from "@mongez/cache";
 const events = new EventBus();
 
 export const observableCache = {
-  set(key: string, value: unknown, expiresAfter?: number) {
-    cache.set(key, value, expiresAfter);
+  async set(key: string, value: unknown, expiresAfter?: number) {
+    await cache.set(key, value, expiresAfter);
     events.trigger("cache.set", { key, value });
   },
   get: cache.get.bind(cache),
-  remove(key: string) {
-    cache.remove(key);
+  async remove(key: string) {
+    await cache.remove(key);
     events.trigger("cache.remove", { key });
   },
   on: events.on.bind(events),
@@ -435,18 +558,26 @@ export const observableCache = {
 
 This is intentionally not in the core package — the cache is meant to be small.
 
-## Known bugs
+## Migrating from 1.x to 2.0
 
-- **`EncryptedLocalStorageDriver.set` ignores `expiresAfter`.** Encrypted entries never expire. (`drivers/EncryptedLocalStorageDriver.ts:12`)
-- **`RunTimeDriver.has(missingKey)` returns `true`.** The base engine's `has()` checks `!== null`, runtime returns `undefined`. (`drivers/RunTimeDriver.ts:24`)
-- **`valueParer` typo** (missing `s` in `Parser`). Both the configuration field and the typo are preserved for backward compatibility. (`types.ts:67`)
-- **`clear()` removes only keys under the configured prefix** (since v1.4.0). With no prefix configured it wipes the entire backend — set a prefix when sharing an origin with other apps.
+See `CHANGELOG.md`'s `[2.0.0]` entry for the complete, dated list. Summary:
 
-See the CHANGELOG for the full list.
+1. **`await` every call.** `set` / `get` / `has` / `remove` / `clear` (unchanged) plus new `keys` / `getAll` all return a `Promise` now, on every driver.
+2. **`has()` agrees with `get()` on expiry** on the plain drivers — an expired entry is evicted and reported absent instead of reported present and then vanishing on the next `get()`.
+3. **`@mongez/encryption` bumps to `^2.0.0`** — async WebCrypto AES-256-GCM. A synchronous 1.x pair still works, since the drivers `await` whatever is returned.
+4. **IndexedDB is additive and opt-in** — `IndexedDBDriver` / `EncryptedIndexedDBDriver` are new, never the default. Existing Web Storage / runtime consumers need no driver change beyond the `await`s above.
+5. **`getCacheConfig` narrows its return type correctly** — generic over `keyof CacheConfigurations` instead of widening to a union of every config value's type.
+
+## Known quirks
+
+- **`valueParer` typo** (missing `s` in `Parser`). Both the configuration field and the typo are preserved for backward compatibility. (`types.ts`)
+- **`clear()` is scoped to the configured prefix.** With no prefix configured it wipes the entire backend — set a prefix when sharing an origin with other apps.
+- **`get` resolves to `null` from the manager, `undefined` from a driver directly.** Specify an explicit default when the distinction matters.
+
+See the CHANGELOG for the full, dated list of fixes and security notes.
 
 ## What this package does NOT do
 
 - Subscriptions / events on writes → wrap the cache or use `@mongez/atom` with a cache-backed `persist` adapter.
-- IndexedDB driver → build one by extending `BaseCacheEngine`.
-- Cookie driver → same — build one with the `BaseCacheEngine` shape, or use a SSR-friendly cookie adapter on `@mongez/atom`'s `persist` slot directly.
-- TypeScript-typed values per key → the `any`-typed driver shape is intentional. Wrap call sites for stronger guarantees.
+- Typed-per-key values → the `any`-typed driver shape is intentional. Wrap call sites for stronger guarantees.
+- A default IndexedDB driver → `IndexedDBDriver` / `EncryptedIndexedDBDriver` exist but are opt-in; nothing constructs one automatically.
